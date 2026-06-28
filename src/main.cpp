@@ -1,34 +1,33 @@
 #include <Wire.h>
-#include "config.h"
-#include "globals.h"
-#include "touch.h"
-#include "display.h"
+
 #include "ble_comm.h"
+#include "config.h"
+#include "display.h"
+#include "globals.h"
 #include "sleep.h"
+#include "touch.h"
 
 // ── Fake RTC (until module replaced) ─────────────────────────────────────
 DateTime getFakeTime() {
     unsigned long seconds = millis() / 1000;
-    return DateTime(2026, 1, 1,
-                    (seconds / 3600) % 24,
-                    (seconds / 60)   % 60,
-                    seconds          % 60);
+    return DateTime(2026, 1, 1, (seconds / 3600) % 24, (seconds / 60) % 60,
+                    seconds % 60);
 }
 
 // ── RTC memory ────────────────────────────────────────────────────────────
-RTC_DATA_ATTR int  savedScreen       = SCREEN_TIME;
-RTC_DATA_ATTR char rtcNotifySrc[32]  = "";
-RTC_DATA_ATTR char rtcNotifyTitle[64]= "";
-RTC_DATA_ATTR char rtcNotifyBody[128]= "";
-RTC_DATA_ATTR bool rtcNotifyPending  = false;
+RTC_DATA_ATTR int savedScreen = SCREEN_TIME;
+RTC_DATA_ATTR char rtcNotifySrc[32] = "";
+RTC_DATA_ATTR char rtcNotifyTitle[64] = "";
+RTC_DATA_ATTR char rtcNotifyBody[128] = "";
+RTC_DATA_ATTR bool rtcNotifyPending = false;
 
 // ── Display state ─────────────────────────────────────────────────────────
 unsigned long screenOnTime = 0;
-bool          displayOn    = false;
+bool displayOn = false;
 
 void turnDisplayOn() {
     display.setBrightness(200);
-    displayOn    = true;
+    displayOn = true;
     screenOnTime = millis();
 }
 
@@ -44,7 +43,7 @@ float maxScrollY() {
 }
 
 void clampScroll() {
-    if (scrollY < 0)            scrollY = 0;
+    if (scrollY < 0) scrollY = 0;
     if (scrollY > maxScrollY()) scrollY = maxScrollY();
 }
 
@@ -63,10 +62,10 @@ void processTap(int tapY) {
         for (int i = 0; i < total; i++) {
             int cardY = 28 + i * (CARD_HEIGHT + CARD_GAP) - (int)scrollY;
             if (tapY >= cardY && tapY < cardY + CARD_HEIGHT) {
-                expandedIndex     = i;
-                currentScreen     = SCREEN_NOTIFY_EXPANDED;
+                expandedIndex = i;
+                currentScreen = SCREEN_NOTIFY_EXPANDED;
                 expandJustEntered = true;
-                lastDraw          = 0;
+                lastDraw = 0;
                 break;
             }
         }
@@ -78,13 +77,15 @@ void processTap(int tapY) {
             notifQueue.erase(notifQueue.begin() + expandedIndex);
             Serial.print("Dismissed, remaining: ");
             Serial.println(notifQueue.size());
-            currentScreen = notifQueue.empty() ? prevScreen : SCREEN_NOTIFY_LIST;
+            currentScreen =
+                notifQueue.empty() ? prevScreen : SCREEN_NOTIFY_LIST;
             clampScroll();
             lastDraw = 0;
         }
 
     } else {
-        currentScreen = (currentScreen == SCREEN_TIME) ? SCREEN_DATE : SCREEN_TIME;
+        currentScreen =
+            (currentScreen == SCREEN_TIME) ? SCREEN_DATE : SCREEN_TIME;
         lastDraw = 0;
     }
 }
@@ -103,8 +104,9 @@ void setup() {
     recoverI2C();
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
     Wire.setClock(100000);
-    delay(100); // let bus settle
-    //configureTouch();
+    delay(100);  // let bus settle
+    configureTouch();
+    setupTouchInterrupt(TOUCH_INT);
 
     display.init();
     display.setRotation(0);
@@ -114,14 +116,14 @@ void setup() {
 
     if (rtcNotifyPending) {
         WatchNotification notif;
-        notif.src   = String(rtcNotifySrc);
+        notif.src = String(rtcNotifySrc);
         notif.title = String(rtcNotifyTitle);
-        notif.body  = String(rtcNotifyBody);
+        notif.body = String(rtcNotifyBody);
         notifQueue.push_back(notif);
         rtcNotifyPending = false;
-        prevScreen    = SCREEN_TIME;
+        prevScreen = SCREEN_TIME;
         currentScreen = SCREEN_NOTIFY_LIST;
-        scrollY       = 0;
+        scrollY = 0;
     } else {
         currentScreen = savedScreen;
     }
@@ -142,79 +144,127 @@ void loop() {
     unsigned long now = millis();
 
     // ── Touch ──────────────────────────────────────────────────────────────
-    static unsigned long lastTouchRead  = 0;
-    static unsigned long lastPulseTime  = 0;
-    static unsigned long pendingLiftTime= 0;
-    static unsigned long touchCooldown  = 0;
-    static bool          wasDown        = false;
-    static bool          pendingLift    = false;
-    static bool          isDragging     = false;
-    static int           touchStartY    = 0;
-    static int           touchCurrentY  = 0;
+    static unsigned long lastTouchRead = 0;
+    static unsigned long lastPulseTime = 0;
+    static unsigned long pendingLiftTime = 0;
+    static unsigned long touchCooldown = 0;
+    static bool wasDown = false;
+    static bool pendingLift = false;
+    static bool isDragging = false;
+    static int touchStartY = 0;
+    static int touchCurrentY = 0;
 
-    if (now - lastTouchRead >= 20) {
-        lastTouchRead = now;
+    if (touchEventFlag) {
+        touchEventFlag = false;
 
+        int tx = 0, ty = 0;
         bool fingerDown = false;
-        int  tx = 0, ty = 0;
 
-        if (now > touchCooldown) {
-            fingerDown = readTouch(tx, ty);
+        Wire.beginTransmission(TOUCH_ADDR);
+        Wire.write(0x01);
+        if (Wire.endTransmission(false) == 0 &&
+            Wire.requestFrom(TOUCH_ADDR, 6) == 6) {
+            Wire.read();
+            int points = Wire.read();
+            byte xHigh = Wire.read();
+            byte xLow = Wire.read();
+            byte yHigh = Wire.read();
+            byte yLow = Wire.read();
+            if (points > 0) {
+                fingerDown = true;
+                tx = ((xHigh & 0x0F) << 8) | xLow;
+                ty = ((yHigh & 0x0F) << 8) | yLow;
+            }
         }
 
+        // Touch state machine
         if (fingerDown && !wasDown) {
-            if (now - lastPulseTime > 150) {
-                // Fresh touch
-                touchStartY   = ty;
-                touchCurrentY = ty;
-                isDragging    = false;
-            }
-            lastPulseTime = now;
-            pendingLift   = false;
-            screenOnTime  = now;
+            touchStartY = ty;
+            touchCurrentY = ty;
+            isDragging = false;
+            screenOnTime = now;
         }
-
         if (fingerDown && wasDown) {
-            if (abs(ty - touchStartY) > TAP_THRESHOLD) {
-                isDragging = true;
-            }
+            if (abs(ty - touchStartY) > TAP_THRESHOLD) isDragging = true;
             if (isDragging && currentScreen == SCREEN_NOTIFY_LIST) {
-                int delta  = touchCurrentY - ty;
-                scrollY   += delta;
+                int delta = touchCurrentY - ty;
+                scrollY += delta;
                 scrollVelocity = delta;
                 clampScroll();
                 lastDraw = 0;
             }
             touchCurrentY = ty;
-            lastPulseTime = now;
-            pendingLift   = false;
-            screenOnTime  = now;
+            screenOnTime = now;
         }
-
         if (!fingerDown && wasDown) {
-            pendingLiftTime = now;
-            pendingLift     = true;
-        }
-
-        // Check pending lift after 80ms silence
-        if (pendingLift && now - pendingLiftTime > 80) {
-            pendingLift = false;
-            if (now - lastPulseTime > 80) {
-                // Genuine lift
-                if (!isDragging) {
-                    touchCooldown = now + 400;
-                    processTap(touchStartY);
-                }
-                isDragging = false;
+            if (!isDragging) {
+                processTap(touchStartY);
             }
+            isDragging = false;
         }
-
         wasDown = fingerDown;
     }
+    /**
+            bool fingerDown = false;
+            int  tx = 0, ty = 0;
 
+            if (now > touchCooldown) {
+                fingerDown = readTouch(tx, ty);
+            }
+
+            if (fingerDown && !wasDown) {
+                if (now - lastPulseTime > 150) {
+                    // Fresh touch
+                    touchStartY   = ty;
+                    touchCurrentY = ty;
+                    isDragging    = false;
+                }
+                lastPulseTime = now;
+                pendingLift   = false;
+                screenOnTime  = now;
+            }
+
+            if (fingerDown && wasDown) {
+                if (abs(ty - touchStartY) > TAP_THRESHOLD) {
+                    isDragging = true;
+                }
+                if (isDragging && currentScreen == SCREEN_NOTIFY_LIST) {
+                    int delta  = touchCurrentY - ty;
+                    scrollY   += delta;
+                    scrollVelocity = delta;
+                    clampScroll();
+                    lastDraw = 0;
+                }
+                touchCurrentY = ty;
+                lastPulseTime = now;
+                pendingLift   = false;
+                screenOnTime  = now;
+            }
+
+            if (!fingerDown && wasDown) {
+                pendingLiftTime = now;
+                pendingLift     = true;
+            }
+
+            // Check pending lift after 80ms silence
+            if (pendingLift && now - pendingLiftTime > 80) {
+                pendingLift = false;
+                if (now - lastPulseTime > 80) {
+                    // Genuine lift
+                    if (!isDragging) {
+                        touchCooldown = now + 400;
+                        processTap(touchStartY);
+                    }
+                    isDragging = false;
+                }
+            }
+
+            wasDown = fingerDown;
+        }
+    */
     // ── Momentum ────────────────────────────────────────────────────────────
     if (currentScreen == SCREEN_NOTIFY_LIST && abs(scrollVelocity) > 0.3f) {
-        scrollY        += scrollVelocity;
+        scrollY += scrollVelocity;
         scrollVelocity *= FRICTION;
         clampScroll();
         lastDraw = 0;
@@ -225,20 +275,19 @@ void loop() {
     // ── Auto return from empty list ─────────────────────────────────────────
     if (currentScreen == SCREEN_NOTIFY_LIST && notifQueue.empty()) {
         currentScreen = prevScreen;
-        lastDraw      = 0;
+        lastDraw = 0;
     }
 
     // ── Drawing ─────────────────────────────────────────────────────────────
-    bool needsRedraw = (lastDraw == 0) ||
-                       (abs(scrollVelocity) > 0.3f) ||
+    bool needsRedraw = (lastDraw == 0) || (abs(scrollVelocity) > 0.3f) ||
                        (displayOn && now - lastDraw >= 1000);
 
     if (displayOn && needsRedraw) {
-        lastDraw    = now;
+        lastDraw = now;
         savedScreen = currentScreen;
         DateTime fakeNow = getFakeTime();
 
-        if      (currentScreen == SCREEN_TIME)
+        if (currentScreen == SCREEN_TIME)
             drawTimeScreen(fakeNow);
         else if (currentScreen == SCREEN_DATE)
             drawDateScreen(fakeNow);

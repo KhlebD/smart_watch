@@ -45,3 +45,5 @@ extern String notifySrc;
 extern String notifyTitle;
 extern String notifyBody;
 extern String bleBuffer;
+
+extern volatile bool touchEventFlag;

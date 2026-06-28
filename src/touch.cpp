@@ -2,6 +2,11 @@
 #include <Wire.h>
 #include "touch.h"
 #include "config.h"
+#include "globals.h"
+
+void IRAM_ATTR touchISR() {
+    touchEventFlag = true;
+}
 
 void resetTouch() {
     pinMode(TOUCH_RST, OUTPUT);
@@ -11,21 +16,19 @@ void resetTouch() {
     delay(50);
 }
 void configureTouch() {
-    // Set CST816S to continuous touch report mode
-    // Register 0xFA = IRQ control, value 0x41 = enable continuous active
+    // Register 0xFA — IRQ control
+    // 0x60 = EnTouch + EnChange: pulse on touch AND on change
     Wire.beginTransmission(TOUCH_ADDR);
     Wire.write(0xFA);
-    Wire.write(0x41);
+    Wire.write(0x60);
     Wire.endTransmission();
-
-    // Register 0xEC = motion mask, enable swipe detection
-    Wire.beginTransmission(TOUCH_ADDR);
-    Wire.write(0xEC);
-    Wire.write(0x01);
-    Wire.endTransmission();
-
-    Serial.println("Touch configured for continuous mode");
+    Serial.println("Touch ISR configured");
 }
+
+void setupTouchInterrupt(int intPin) {
+    attachInterrupt(digitalPinToInterrupt(intPin), touchISR, FALLING);
+}
+
 void recoverI2C() {
     pinMode(TOUCH_SDA, OUTPUT);
     pinMode(TOUCH_SCL, OUTPUT);

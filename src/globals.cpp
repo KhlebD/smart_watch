@@ -49,6 +49,8 @@ volatile unsigned long lastDraw   = 0;
 volatile unsigned long notifyTime = 0;
 volatile bool pendingRedraw = false;
 
+volatile bool touchEventFlag = false;
+
 String notifySrc   = "";
 String notifyTitle = "";
 String notifyBody  = "";

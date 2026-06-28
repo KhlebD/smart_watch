@@ -20,3 +20,4 @@ bool readTouch(int &x, int &y);
 int  readGesture();
 bool readTouchRaw(TouchEvent &evt);
 void recoverI2C();
+void setupTouchInterrupt(int intPin);
