@@ -93,6 +93,10 @@ void processTap(int tapY) {
 // ── Setup ─────────────────────────────────────────────────────────────────
 void setup() {
     Serial.begin(115200);
+    Serial.printf("Total heap: %d\n", ESP.getHeapSize());
+    Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
+    Serial.printf("Total PSRAM: %d\n", ESP.getPsramSize());
+    Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram());
     delay(500);
 
     int wakeReason = getWakeReason();
@@ -110,9 +114,19 @@ void setup() {
 
     display.init();
     display.setRotation(0);
+    display.invertDisplay(true);
     display.fillScreen(TFT_BLACK);
-    sprite.setColorDepth(8);
-    sprite.createSprite(240, 240);
+    sprite.setColorDepth(16);
+    sprite.setPsram(true);
+    bool ok = sprite.createSprite(240, 240);
+    if (!ok) {
+        Serial.println("Sprite failed even with PSRAM");
+        sprite.setPsram(false);
+        sprite.setColorDepth(8);
+        sprite.createSprite(240, 240);
+    }
+    Serial.print("Color depth: ");
+    Serial.println(sprite.getColorDepth());
 
     if (rtcNotifyPending) {
         WatchNotification notif;

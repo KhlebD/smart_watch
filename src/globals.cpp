@@ -8,6 +8,7 @@ LGFX::LGFX(void) {
         cfg.freq_write = 80000000;
         cfg.pin_mosi   = LCD_MOSI;
         cfg.pin_miso   = -1;
+        
         cfg.pin_sclk   = LCD_SCLK;
         cfg.pin_dc     = LCD_DC;
         _bus_instance.config(cfg);

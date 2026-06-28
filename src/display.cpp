@@ -1,8 +1,8 @@
 #include "display.h"
-#include "globals.h"
-#include "battery.h"
+
 #include "battery.h"
 #include "config.h"
+#include "globals.h"
 
 String stripNonAscii(String input) {
     String result = "";
@@ -14,7 +14,7 @@ String stripNonAscii(String input) {
     return result;
 }
 
-void drawTimeScreen(DateTime &now) {
+void drawTimeScreen(DateTime& now) {
     sprite.fillScreen(TFT_BLACK);
 
     char timeBuf[6];
@@ -50,10 +50,10 @@ void drawTimeScreen(DateTime &now) {
     sprite.pushSprite(0, 0);
 }
 
-void drawDateScreen(DateTime &now) {
-    const char* days[]   = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
-    const char* months[] = {"Jan","Feb","Mar","Apr","May","Jun",
-                             "Jul","Aug","Sep","Oct","Nov","Dec"};
+void drawDateScreen(DateTime& now) {
+    const char* days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+    const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
     sprite.fillScreen(TFT_BLACK);
 
@@ -87,7 +87,7 @@ void drawNotifyScreen() {
     sprite.fillScreen(TFT_BLACK);
 
     sprite.setTextSize(1);
-    sprite.setTextColor(0x7BEF);
+    sprite.setTextColor(TFT_WHITE);
     int sw = sprite.textWidth(notifySrc.c_str());
     sprite.setCursor((240 - sw) / 2, 55);
     sprite.print(notifySrc);
@@ -101,12 +101,12 @@ void drawNotifyScreen() {
     sprite.print(notifyTitle);
 
     sprite.setTextSize(1);
-    sprite.setTextColor(0x7BEF);
+    sprite.setTextColor(TFT_WHITE);
     sprite.setCursor(20, 130);
     sprite.print(notifyBody.substring(0, 120));
 
     sprite.setTextSize(1);
-    sprite.setTextColor(0x4208);
+    sprite.setTextColor(0xBDF7);
     String hint = "tap to dismiss";
     int hw = sprite.textWidth(hint.c_str());
     sprite.setCursor((240 - hw) / 2, 200);
@@ -119,7 +119,6 @@ String truncate(String s, int maxLen) {
     if (s.length() <= (unsigned)maxLen) return s;
     return s.substring(0, maxLen - 3) + "...";
 }
-
 void drawNotifyListScreen() {
     sprite.fillScreen(TFT_BLACK);
 
@@ -127,7 +126,7 @@ void drawNotifyListScreen() {
 
     if (total == 0) {
         sprite.setTextSize(1);
-        sprite.setTextColor(0x4208);
+        sprite.setTextColor(0xBDF7);
         String msg = "all caught up";
         int w = sprite.textWidth(msg.c_str());
         sprite.setCursor((240 - w) / 2, 110);
@@ -138,66 +137,62 @@ void drawNotifyListScreen() {
 
     // Header
     sprite.setTextSize(1);
-    sprite.setTextColor(0x7BEF);
+    sprite.setTextColor(TFT_WHITE);
     String hdr = "notifications";
     int hw = sprite.textWidth(hdr.c_str());
     sprite.setCursor((240 - hw) / 2, 14);
     sprite.print(hdr);
-    sprite.drawFastHLine(10, 22, 220, 0x2104);
+    sprite.drawFastHLine(20, 22, 200, 0x7BEF);
 
     int listStartY = 28;
 
-    // Draw all cards offset by scrollY
     for (int i = 0; i < total; i++) {
         int cardY = listStartY + i * (CARD_HEIGHT + CARD_GAP) - (int)scrollY;
 
-        // Skip if entirely off screen
         if (cardY + CARD_HEIGHT < listStartY) continue;
-        if (cardY > 235)                       break;
+        if (cardY > 235) break;
 
         WatchNotification &n = notifQueue[i];
 
-        // Card background
-        sprite.fillRoundRect(10, cardY, 220, CARD_HEIGHT, 6, 0x1082);
-        sprite.drawRoundRect(10, cardY, 220, CARD_HEIGHT, 6, 0x2104);
+        sprite.fillRoundRect(20, cardY, 200, CARD_HEIGHT, 6, 0x1082);
+        sprite.drawRoundRect(20, cardY, 200, CARD_HEIGHT, 6, 0x7BEF);
 
-        // App name — only draw if within visible area
         if (cardY + 8 >= listStartY && cardY + 8 < 235) {
             sprite.setTextSize(1);
-            sprite.setTextColor(0x7BEF);
-            sprite.setCursor(18, cardY + 8);
+            sprite.setTextColor(TFT_WHITE);
+            sprite.setCursor(28, cardY + 8);
             sprite.print(truncate(n.src, 20));
         }
 
         if (cardY + 22 >= listStartY && cardY + 22 < 235) {
             sprite.setTextSize(1);
             sprite.setTextColor(TFT_WHITE);
-            sprite.setCursor(18, cardY + 22);
-            sprite.print(truncate(n.title, 28));
+            sprite.setCursor(28, cardY + 22);
+            sprite.print(truncate(n.title, 26));
         }
 
         if (cardY + 36 >= listStartY && cardY + 36 < 235) {
             sprite.setTextSize(1);
-            sprite.setTextColor(0x4208);
-            sprite.setCursor(18, cardY + 36);
-            sprite.print(truncate(n.body, 30));
+            sprite.setTextColor(0xBDF7);
+            sprite.setCursor(28, cardY + 36);
+            sprite.print(truncate(n.body, 28));
         }
 
         if (cardY + 48 >= listStartY && cardY + 48 < 235) {
             sprite.setTextSize(1);
-            sprite.setTextColor(0x2104);
-            sprite.setCursor(18, cardY + 48);
+            sprite.setTextColor(0x7BEF);
+            sprite.setCursor(28, cardY + 48);
             sprite.print("tap to expand");
         }
     }
 
-    // Redraw header on top to cover any cards that scrolled into it
+    // Redraw header on top
     sprite.fillRect(0, 0, 240, 26, TFT_BLACK);
     sprite.setTextSize(1);
-    sprite.setTextColor(0x7BEF);
+    sprite.setTextColor(TFT_WHITE);
     sprite.setCursor((240 - hw) / 2, 14);
     sprite.print(hdr);
-    sprite.drawFastHLine(10, 22, 220, 0x2104);
+    sprite.drawFastHLine(20, 22, 200, 0x7BEF);
 
     sprite.pushSprite(0, 0);
 }
@@ -208,57 +203,56 @@ void drawNotifyExpandedScreen() {
     if (expandedIndex >= (int)notifQueue.size()) return;
     WatchNotification &n = notifQueue[expandedIndex];
 
-    // Back indicator + app name
+    // Header
     sprite.setTextSize(1);
-    sprite.setTextColor(0x4208);
+    sprite.setTextColor(0x7BEF);
     sprite.setCursor(10, 14);
     sprite.print("<");
-    sprite.setTextColor(0x7BEF);
+    sprite.setTextColor(TFT_WHITE);
     String src = truncate(n.src, 22);
     int sw = sprite.textWidth(src.c_str());
     sprite.setCursor((240 - sw) / 2, 14);
     sprite.print(src);
-    sprite.drawFastHLine(10, 22, 220, 0x2104);
+    sprite.drawFastHLine(20, 22, 200, 0x7BEF);
 
     // Card
-    sprite.fillRoundRect(10, 28, 220, 168, 6, 0x1082);
-    sprite.drawRoundRect(10, 28, 220, 168, 6, 0x2104);
+    sprite.fillRoundRect(20, 28, 200, 168, 6, 0x1082);
+    sprite.drawRoundRect(20, 28, 200, 168, 6, 0x7BEF);
 
     // Title
     sprite.setTextSize(1);
     sprite.setTextColor(TFT_WHITE);
     sprite.setTextWrap(true);
-    sprite.setCursor(18, 38);
+    sprite.setCursor(28, 38);
     sprite.print(n.title);
 
-    sprite.drawFastHLine(18, 52, 204, 0x2104);
+    sprite.drawFastHLine(28, 52, 184, 0x7BEF);
 
-    // Body — full text with wrapping
-    sprite.setTextColor(0x7BEF);
-    sprite.setCursor(18, 60);
-    // Manual wrap at ~30 chars per line
+    // Body with manual wrapping
+    sprite.setTextColor(0xBDF7);
     String body = n.body;
     int lineY = 60;
     while (body.length() > 0 && lineY < 180) {
-        String line = body.substring(0, min((int)body.length(), 30));
+        String line = body.substring(0, min((int)body.length(), 28));
         int lastSpace = line.lastIndexOf(' ');
-        if (lastSpace > 0 && (int)body.length() > 30) {
+        if (lastSpace > 0 && (int)body.length() > 28) {
             line = body.substring(0, lastSpace);
             body = body.substring(lastSpace + 1);
         } else {
             body = body.substring(line.length());
         }
-        sprite.setCursor(18, lineY);
+        sprite.setCursor(28, lineY);
         sprite.print(line);
         lineY += 12;
     }
 
     // Dismiss hint
     sprite.setTextSize(1);
-    sprite.setTextColor(0x2104);
-    int dw = sprite.textWidth("tap to dismiss");
+    sprite.setTextColor(0x7BEF);
+    String hint = "tap to dismiss";
+    int dw = sprite.textWidth(hint.c_str());
     sprite.setCursor((240 - dw) / 2, 208);
-    sprite.print("tap to dismiss");
+    sprite.print(hint);
 
     sprite.pushSprite(0, 0);
 }
