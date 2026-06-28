@@ -7,13 +7,6 @@
 #include "sleep.h"
 #include "touch.h"
 
-// ── Fake RTC (until module replaced) ─────────────────────────────────────
-DateTime getFakeTime() {
-    unsigned long seconds = millis() / 1000;
-    return DateTime(2026, 1, 1, (seconds / 3600) % 24, (seconds / 60) % 60,
-                    seconds % 60);
-}
-
 // ── RTC memory ────────────────────────────────────────────────────────────
 RTC_DATA_ATTR int savedScreen = SCREEN_TIME;
 RTC_DATA_ATTR char rtcNotifySrc[32] = "";
@@ -99,6 +92,11 @@ void setup() {
     Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram());
     delay(500);
 
+    if (!rtc.begin()) {
+        Serial.println("RTC not found");
+        while (1);
+    }
+    //rtc.adjust(DateTime(2026, 6, 28, 15, 10, 0));
     int wakeReason = getWakeReason();
     Serial.print("Wake reason: ");
     Serial.println(wakeReason);
@@ -218,64 +216,7 @@ void loop() {
         }
         wasDown = fingerDown;
     }
-    /**
-            bool fingerDown = false;
-            int  tx = 0, ty = 0;
 
-            if (now > touchCooldown) {
-                fingerDown = readTouch(tx, ty);
-            }
-
-            if (fingerDown && !wasDown) {
-                if (now - lastPulseTime > 150) {
-                    // Fresh touch
-                    touchStartY   = ty;
-                    touchCurrentY = ty;
-                    isDragging    = false;
-                }
-                lastPulseTime = now;
-                pendingLift   = false;
-                screenOnTime  = now;
-            }
-
-            if (fingerDown && wasDown) {
-                if (abs(ty - touchStartY) > TAP_THRESHOLD) {
-                    isDragging = true;
-                }
-                if (isDragging && currentScreen == SCREEN_NOTIFY_LIST) {
-                    int delta  = touchCurrentY - ty;
-                    scrollY   += delta;
-                    scrollVelocity = delta;
-                    clampScroll();
-                    lastDraw = 0;
-                }
-                touchCurrentY = ty;
-                lastPulseTime = now;
-                pendingLift   = false;
-                screenOnTime  = now;
-            }
-
-            if (!fingerDown && wasDown) {
-                pendingLiftTime = now;
-                pendingLift     = true;
-            }
-
-            // Check pending lift after 80ms silence
-            if (pendingLift && now - pendingLiftTime > 80) {
-                pendingLift = false;
-                if (now - lastPulseTime > 80) {
-                    // Genuine lift
-                    if (!isDragging) {
-                        touchCooldown = now + 400;
-                        processTap(touchStartY);
-                    }
-                    isDragging = false;
-                }
-            }
-
-            wasDown = fingerDown;
-        }
-    */
     // ── Momentum ────────────────────────────────────────────────────────────
     if (currentScreen == SCREEN_NOTIFY_LIST && abs(scrollVelocity) > 0.3f) {
         scrollY += scrollVelocity;
@@ -299,12 +240,12 @@ void loop() {
     if (displayOn && needsRedraw) {
         lastDraw = now;
         savedScreen = currentScreen;
-        DateTime fakeNow = getFakeTime();
+        DateTime now = rtc.now();
 
         if (currentScreen == SCREEN_TIME)
-            drawTimeScreen(fakeNow);
+            drawTimeScreen(now);
         else if (currentScreen == SCREEN_DATE)
-            drawDateScreen(fakeNow);
+            drawDateScreen(now);
         else if (currentScreen == SCREEN_NOTIFY_LIST)
             drawNotifyListScreen();
         else if (currentScreen == SCREEN_NOTIFY_EXPANDED)
