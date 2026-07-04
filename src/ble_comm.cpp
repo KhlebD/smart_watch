@@ -76,9 +76,9 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
 
         if (strcmp(type, "notify") == 0) {
             WatchNotification notif;
-            notif.src = stripNonAscii(doc["src"] | "Unknown");
-            notif.title = stripNonAscii(doc["title"] | "");
-            notif.body = stripNonAscii(doc["body"] | "");
+            notif.src = doc["src"] | "Unknown";
+            notif.title = doc["title"] | "";
+            notif.body = doc["body"] | "";
             notifQueue.push_back(notif);
 
             Serial.print("Queued notification, total: ");

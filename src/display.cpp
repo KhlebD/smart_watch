@@ -1,8 +1,10 @@
 #include "display.h"
 
+#include "NotoHebrew16.h"
 #include "battery.h"
 #include "config.h"
 #include "globals.h"
+#include "textutils.h"
 
 String stripNonAscii(String input) {
     String result = "";
@@ -152,7 +154,7 @@ void drawNotifyListScreen() {
         if (cardY + CARD_HEIGHT < listStartY) continue;
         if (cardY > 235) break;
 
-        WatchNotification &n = notifQueue[i];
+        WatchNotification& n = notifQueue[i];
 
         sprite.fillRoundRect(20, cardY, 200, CARD_HEIGHT, 6, 0x1082);
         sprite.drawRoundRect(20, cardY, 200, CARD_HEIGHT, 6, 0x7BEF);
@@ -168,14 +170,14 @@ void drawNotifyListScreen() {
             sprite.setTextSize(1);
             sprite.setTextColor(TFT_WHITE);
             sprite.setCursor(28, cardY + 22);
-            sprite.print(truncate(n.title, 26));
+            drawBiDiText(28, cardY + 22, truncate(n.title, 26), TFT_WHITE);
         }
 
         if (cardY + 36 >= listStartY && cardY + 36 < 235) {
             sprite.setTextSize(1);
             sprite.setTextColor(0xBDF7);
             sprite.setCursor(28, cardY + 36);
-            sprite.print(truncate(n.body, 28));
+            drawBiDiText(28, cardY + 36, truncate(n.body, 28), 0xBDF7);
         }
 
         if (cardY + 48 >= listStartY && cardY + 48 < 235) {
@@ -201,7 +203,7 @@ void drawNotifyExpandedScreen() {
     sprite.fillScreen(TFT_BLACK);
 
     if (expandedIndex >= (int)notifQueue.size()) return;
-    WatchNotification &n = notifQueue[expandedIndex];
+    WatchNotification& n = notifQueue[expandedIndex];
 
     // Header
     sprite.setTextSize(1);
@@ -229,22 +231,46 @@ void drawNotifyExpandedScreen() {
     sprite.drawFastHLine(28, 52, 184, 0x7BEF);
 
     // Body with manual wrapping
-    sprite.setTextColor(0xBDF7);
     String body = n.body;
     int lineY = 60;
-    while (body.length() > 0 && lineY < 180) {
-        String line = body.substring(0, min((int)body.length(), 28));
-        int lastSpace = line.lastIndexOf(' ');
-        if (lastSpace > 0 && (int)body.length() > 28) {
-            line = body.substring(0, lastSpace);
-            body = body.substring(lastSpace + 1);
-        } else {
-            body = body.substring(line.length());
+    auto cps = applyBiDi(body);
+    String displayLine = "";
+    int lineWidth = 0;
+
+    for (auto cp : cps) {
+        bool hebrew = isHebrew(cp);
+        sprite.setFont(hebrew ? &NotoHebrew16pt : nullptr);
+        int charW = sprite.fontWidth();
+
+        if (lineWidth + charW > 184) {
+            // Draw current line
+            drawBiDiText(28, lineY, displayLine, 0xBDF7);
+            displayLine = "";
+            lineWidth = 0;
+            lineY += 14;
+            if (lineY >= 180) break;
         }
-        sprite.setCursor(28, lineY);
-        sprite.print(line);
-        lineY += 12;
+
+        // Append character
+        if (cp < 0x80) {
+            displayLine += (char)cp;
+        } else {
+            // Re-encode to UTF-8 for String append
+            if (cp < 0x800) {
+                displayLine += (char)(0xC0 | (cp >> 6));
+                displayLine += (char)(0x80 | (cp & 0x3F));
+            } else {
+                displayLine += (char)(0xE0 | (cp >> 12));
+                displayLine += (char)(0x80 | ((cp >> 6) & 0x3F));
+                displayLine += (char)(0x80 | (cp & 0x3F));
+            }
+        }
+        lineWidth += charW;
     }
+    if (!displayLine.isEmpty() && lineY < 180) {
+        drawBiDiText(28, lineY, displayLine, 0xBDF7);
+    }
+    sprite.setFont(nullptr);
 
     // Dismiss hint
     sprite.setTextSize(1);
@@ -255,4 +281,34 @@ void drawNotifyExpandedScreen() {
     sprite.print(hint);
 
     sprite.pushSprite(0, 0);
+}
+int biDiTextWidth(const String& text) {
+    auto cps = applyBiDi(text);
+    int w = 0;
+    for (auto cp : cps) {
+        if (isHebrew(cp)) {
+            sprite.setFont(&NotoHebrew16pt);
+        } else {
+            sprite.setFont(nullptr);
+        }
+        w += sprite.fontWidth();
+    }
+    sprite.setFont(nullptr);
+    return w;
+}
+
+void drawBiDiText(int x, int y, const String &text, uint16_t color) {
+    auto cps = applyBiDi(text);
+    int curX = x;
+    for (auto cp : cps) {
+        if (isHebrew(cp)) {
+            sprite.setFont(&NotoHebrew16pt);
+        } else {
+            sprite.setFont(nullptr);
+        }
+        sprite.setTextColor(color, TFT_BLACK);
+        sprite.drawChar(cp, curX, y);
+        curX += sprite.fontWidth();
+    }
+    sprite.setFont(nullptr);
 }

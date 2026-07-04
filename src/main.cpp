@@ -1,5 +1,6 @@
 #include <Wire.h>
 
+#include "NotoHebrew16.h"
 #include "ble_comm.h"
 #include "config.h"
 #include "display.h"
@@ -116,11 +117,57 @@ void setup() {
         sprite.setColorDepth(8);
         sprite.createSprite(240, 240);
     }
+    Serial.printf("Hebrew font first char: 0x%04X\n", NotoHebrew16pt.first);
+    Serial.printf("Hebrew font last char:  0x%04X\n", NotoHebrew16pt.last);
     turnDisplayOn();
     Serial.print("Color depth: ");
     Serial.println(sprite.getColorDepth());
     initBLE();
     Serial.println("Setup complete");
+    // Temporary Hebrew font test — remove after testing
+    sprite.fillScreen(TFT_BLACK);
+    sprite.setTextColor(TFT_WHITE, TFT_BLACK);
+
+    // Test ASCII with default font
+    sprite.setFont(nullptr);
+    sprite.setCursor(100, 100);
+    sprite.print("Hello");
+
+    /* Test Hebrew letters with Hebrew font
+    sprite.setFont(&NotoHebrew16pt);
+    sprite.setCursor(100, 150);
+    // Draw שלום (shalom) character by character
+    uint16_t shalom[] = {0x05E9, 0x05DC, 0x05D5, 0x05DD};  // ש ל ו ם
+    for (int i = 0; i < 4; i++) {
+        sprite.write(shalom[i]);
+    }
+    */
+    // Test with a built-in LovyanGFX font that has extended chars
+
+    /*
+    sprite.fillScreen(TFT_BLACK);
+    sprite.setFont(&fonts::FreeSans9pt7b);
+    sprite.setTextColor(TFT_WHITE);
+    sprite.setCursor(100, 30);
+    sprite.printf("Hello");
+    sprite.setCursor(100, 60);
+    // Try drawing a character by codepoint directly
+    sprite.drawChar(0x0041, 100, 90);   // capital A
+    sprite.drawChar(0x05D0, 100, 120);  // alef - will this work?
+    // Which of these compiles without error?
+    sprite.drawChar(0x0042, 10, 90);        // codepoint, x, y
+    sprite.drawChar(10, 90, 0x0043);        // x, y, codepoint
+    sprite.drawChar(10, 90, (char)0xD0);    // just the low byte
+    sprite.pushSprite(0, 0);
+    delay(10000);
+    */
+    sprite.setFont(&NotoHebrew16pt);
+    sprite.setTextColor(TFT_WHITE);
+    sprite.setCursor(100, 60);
+    // שלום as raw UTF-8 bytes
+    sprite.drawString("\xD7\xA9\xD7\x9C\xD7\x95\xD7\x9D", 100, 60);
+    sprite.pushSprite(0, 0);
+    delay(5000);
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────
