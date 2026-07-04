@@ -7,12 +7,8 @@
 #include "sleep.h"
 #include "touch.h"
 
-// ── RTC memory ────────────────────────────────────────────────────────────
-RTC_DATA_ATTR int savedScreen = SCREEN_TIME;
-RTC_DATA_ATTR char rtcNotifySrc[32] = "";
-RTC_DATA_ATTR char rtcNotifyTitle[64] = "";
-RTC_DATA_ATTR char rtcNotifyBody[128] = "";
-RTC_DATA_ATTR bool rtcNotifyPending = false;
+// ── Screen state ─────────────────────────────────────────────────────────
+int savedScreen = SCREEN_TIME;
 
 // ── Display state ─────────────────────────────────────────────────────────
 unsigned long screenOnTime = 0;
@@ -96,10 +92,7 @@ void setup() {
         Serial.println("RTC not found");
         while (1);
     }
-    //rtc.adjust(DateTime(2026, 6, 28, 15, 10, 0));
-    int wakeReason = getWakeReason();
-    Serial.print("Wake reason: ");
-    Serial.println(wakeReason);
+    // rtc.adjust(DateTime(2026, 6, 28, 15, 10, 0));
 
     resetTouch();
     pinMode(TOUCH_INT, INPUT);
@@ -123,31 +116,10 @@ void setup() {
         sprite.setColorDepth(8);
         sprite.createSprite(240, 240);
     }
+    turnDisplayOn();
     Serial.print("Color depth: ");
     Serial.println(sprite.getColorDepth());
-
-    if (rtcNotifyPending) {
-        WatchNotification notif;
-        notif.src = String(rtcNotifySrc);
-        notif.title = String(rtcNotifyTitle);
-        notif.body = String(rtcNotifyBody);
-        notifQueue.push_back(notif);
-        rtcNotifyPending = false;
-        prevScreen = SCREEN_TIME;
-        currentScreen = SCREEN_NOTIFY_LIST;
-        scrollY = 0;
-    } else {
-        currentScreen = savedScreen;
-    }
-
-    if (wakeReason == WAKE_REASON_TIMER) {
-        turnDisplayOff();
-    } else {
-        turnDisplayOn();
-    }
-
     initBLE();
-    configureSleepWakeSources();
     Serial.println("Setup complete");
 }
 
@@ -252,16 +224,11 @@ void loop() {
             drawNotifyExpandedScreen();
     }
 
-    // ── Display timeout (comment out for testing) ───────────────────────────
-    // if (displayOn && now - screenOnTime > DISPLAY_TIMEOUT_MS) {
-    //     savedScreen = currentScreen;
-    //     turnDisplayOff();
-    //     goToSleep();
-    // }
-
-    // ── Timer wake timeout (comment out for testing) ────────────────────────
-    // static unsigned long timerWakeTime = millis();
-    // if (!displayOn && now - timerWakeTime > 5000) {
-    //     goToSleep();
-    // }
+    // ── Display timeout ─────────────────────────────────────────────────────
+    if (displayOn && now - screenOnTime > DISPLAY_TIMEOUT_MS) {
+        turnDisplayOff();
+        goToLightSleep();
+        turnDisplayOn();
+        lastDraw = 0;
+    }
 }

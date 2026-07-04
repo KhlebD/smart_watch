@@ -19,7 +19,6 @@ class ServerCallbacks : public NimBLEServerCallbacks {
         bleConnected = false;
         Serial.println("BLE disconnected, reason:");
         Serial.println(reason);
-        delay(500);
         NimBLEDevice::startAdvertising();
         Serial.println("BLE advertising restarted");
     }
