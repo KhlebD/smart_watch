@@ -67,14 +67,14 @@ void loop() {
     }
 
     // Touch
-    static unsigned long lastTouchRead = 0;
-    if (millis() - lastTouchRead >= 20) {
-        lastTouchRead = millis();
+    static bool wasDown = false;
 
-        int tx, ty;
+    if (touchEventFlag || wasDown) {
+        touchEventFlag = false;
+
+        int tx = 0, ty = 0;
         bool fingerDown = false;
 
-        // Direct poll — works for both taps and drags
         Wire.beginTransmission(TOUCH_ADDR);
         Wire.write(0x01);
         if (Wire.endTransmission(false) == 0 &&
@@ -95,6 +95,7 @@ void loop() {
         lastTouchX = tx;
         lastTouchY = ty;
         lastTouchDown = fingerDown;
+        wasDown = fingerDown;
     }
     // Update watch face every second
     static unsigned long lastUpdate = 0;
