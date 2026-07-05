@@ -2,6 +2,7 @@
 #include <LovyanGFX.hpp>
 #include <RTClib.h>
 #include <NimBLEDevice.h>
+#include <lvgl.h>
 #include <queue>
 #include <vector>
 
@@ -47,3 +48,10 @@ extern String notifyBody;
 extern String bleBuffer;
 
 extern volatile bool touchEventFlag;
+
+// LVGL Additions
+extern int  lastTouchX;
+extern int  lastTouchY;
+extern bool lastTouchDown;
+extern lv_obj_t *scr_watch;
+extern volatile bool pendingNotification;

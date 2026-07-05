@@ -1,5 +1,6 @@
 #include "globals.h"
 #include "config.h"
+#include <lvgl.h>
 
 LGFX::LGFX(void) {
     {
@@ -56,3 +57,10 @@ String notifySrc   = "";
 String notifyTitle = "";
 String notifyBody  = "";
 String bleBuffer   = "";
+
+int  lastTouchX    = 0;
+int  lastTouchY    = 0;
+bool lastTouchDown = false;
+
+lv_obj_t *scr_watch = nullptr;
+volatile bool pendingNotification = false;

@@ -7,6 +7,7 @@
 #include "config.h"
 #include "display.h"
 #include "globals.h"
+#include "notif_screen.h"
 
 class ServerCallbacks : public NimBLEServerCallbacks {
     void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
@@ -80,34 +81,13 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
             notif.title = doc["title"] | "";
             notif.body = doc["body"] | "";
             notifQueue.push_back(notif);
-
-            Serial.print("Queued notification, total: ");
-            Serial.println(notifQueue.size());
-
-            // Switch to list screen if not already there
-            if (currentScreen != SCREEN_NOTIFY_LIST &&
-                currentScreen != SCREEN_NOTIFY_EXPANDED) {
-                prevScreen = currentScreen;
-                currentScreen = SCREEN_NOTIFY_LIST;
-                scrollOffset = 0;
-                lastDraw = 0;
-            }
+            Serial.printf("Queued notification, total: %d\n",
+                          notifQueue.size());
+            pendingNotification = true;
         }
 
         if (strcmp(type, "notify-remove") == 0) {
-            int id = doc["id"] | -1;
-            // For now just clear all — fine for basic use
-            if (currentScreen == SCREEN_NOTIFY_LIST ||
-                currentScreen == SCREEN_NOTIFY_EXPANDED) {
-                currentScreen = prevScreen;
-                lastDraw = 0;
-            }
-        }
-        if (strcmp(type, "notify-remove") == 0) {
-            if (currentScreen == SCREEN_NOTIFY) {
-                currentScreen = prevScreen;
-                lastDraw = 0;
-            }
+            // Nothing to do for now — user dismisses manually on watch
         }
 
         if (strcmp(type, "setTime") == 0) {
