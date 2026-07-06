@@ -2,6 +2,7 @@
 #include "globals.h"
 #include "watch_face.h"
 #include <stdio.h>
+#include "lv_hebrew_fonts.h"
 
 #define CARD_BG_COLOR  lv_color_make(0x22, 0x22, 0x22)
 #define TEXT_PRIMARY   lv_color_white()
@@ -66,7 +67,7 @@ static void build_list() {
         lv_obj_t *empty = lv_label_create(list_cont);
         lv_label_set_text(empty, "all caught up");
         lv_obj_set_style_text_color(empty, TEXT_DIM, 0);
-        lv_obj_set_style_text_font(empty, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(empty, &lv_heb_ascii_14, 0);
         lv_obj_center(empty);
         return;
     }
@@ -97,7 +98,7 @@ static void build_list() {
         lv_obj_t *lbl_src = lv_label_create(card);
         lv_label_set_text(lbl_src, truncate(n.src, 22).c_str());
         lv_obj_set_style_text_color(lbl_src, TEXT_DIM, 0);
-        lv_obj_set_style_text_font(lbl_src, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(lbl_src, &lv_heb_ascii_14, 0);
         lv_obj_set_width(lbl_src, 180);
         lv_label_set_long_mode(lbl_src, LV_LABEL_LONG_CLIP);
 
@@ -105,7 +106,7 @@ static void build_list() {
         lv_obj_t *lbl_title = lv_label_create(card);
         lv_label_set_text(lbl_title, truncate(n.title, 24).c_str());
         lv_obj_set_style_text_color(lbl_title, TEXT_PRIMARY, 0);
-        lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(lbl_title, &lv_heb_ascii_16, 0);
         lv_obj_set_width(lbl_title, 180);
         lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_CLIP);
 
@@ -113,7 +114,7 @@ static void build_list() {
         lv_obj_t *lbl_body = lv_label_create(card);
         lv_label_set_text(lbl_body, truncate(n.body, 30).c_str());
         lv_obj_set_style_text_color(lbl_body, TEXT_SECONDARY, 0);
-        lv_obj_set_style_text_font(lbl_body, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(lbl_body, &lv_heb_ascii_14, 0);
         lv_obj_set_width(lbl_body, 180);
         lv_label_set_long_mode(lbl_body, LV_LABEL_LONG_CLIP);
     }
@@ -147,7 +148,7 @@ void notif_screen_create() {
     lv_obj_t *hdr = lv_label_create(scr_list);
     lv_label_set_text(hdr, "notifications");
     lv_obj_set_style_text_color(hdr, TEXT_DIM, 0);
-    lv_obj_set_style_text_font(hdr, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(hdr, &lv_heb_ascii_14, 0);
     lv_obj_align(hdr, LV_ALIGN_TOP_MID, 0, 8);
 
     // Scrollable card container
@@ -175,7 +176,7 @@ void notif_screen_create() {
     // App name
     lbl_exp_src = lv_label_create(scr_expanded);
     lv_obj_set_style_text_color(lbl_exp_src, TEXT_DIM, 0);
-    lv_obj_set_style_text_font(lbl_exp_src, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_exp_src, &lv_heb_ascii_14, 0);
     lv_obj_align(lbl_exp_src, LV_ALIGN_TOP_MID, 0, 10);
 
     // Divider
@@ -207,7 +208,7 @@ void notif_screen_create() {
     lbl_exp_title = lv_label_create(exp_card);
     lv_label_set_text(lbl_exp_title, "");
     lv_obj_set_style_text_color(lbl_exp_title, TEXT_PRIMARY, 0);
-    lv_obj_set_style_text_font(lbl_exp_title, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_exp_title, &lv_heb_ascii_16, 0);
     lv_obj_set_width(lbl_exp_title, 180);
     lv_label_set_long_mode(lbl_exp_title, LV_LABEL_LONG_WRAP);
 
@@ -215,7 +216,7 @@ void notif_screen_create() {
     lbl_exp_body = lv_label_create(exp_card);
     lv_label_set_text(lbl_exp_body, "");
     lv_obj_set_style_text_color(lbl_exp_body, TEXT_SECONDARY, 0);
-    lv_obj_set_style_text_font(lbl_exp_body, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_exp_body, &lv_heb_ascii_14, 0);
     lv_obj_set_width(lbl_exp_body, 180);
     lv_label_set_long_mode(lbl_exp_body, LV_LABEL_LONG_WRAP);
 
@@ -232,7 +233,7 @@ void notif_screen_create() {
     lv_obj_t *btn_lbl = lv_label_create(btn);
     lv_label_set_text(btn_lbl, "dismiss");
     lv_obj_set_style_text_color(btn_lbl, TEXT_DIM, 0);
-    lv_obj_set_style_text_font(btn_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(btn_lbl, &lv_heb_ascii_14, 0);
     lv_obj_center(btn_lbl);
 }
 
