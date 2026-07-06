@@ -9,13 +9,16 @@
 #include "globals.h"
 #include "lvgl_port.h"
 #include "notif_screen.h"
+#include "sleep.h"
 #include "touch.h"
 #include "watch_face.h"
+
 // Forward declared in notif_screen.cpp
 void show_watch_face() {
     extern lv_obj_t* scr_watch;
     lv_scr_load_anim(scr_watch, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200, 0, false);
 }
+unsigned long screenOnTime = 0;
 
 void setup() {
     Serial.begin(115200);
@@ -92,6 +95,8 @@ void loop() {
             }
         }
 
+        if (fingerDown)
+            screenOnTime = millis();  // reset display timeout on touch
         lastTouchX = tx;
         lastTouchY = ty;
         lastTouchDown = fingerDown;
@@ -109,4 +114,13 @@ void loop() {
 
     lv_timer_handler();
     delay(5);
+    // ── Display timeout ─────────────────────────────────────────────────────
+    if (millis() - screenOnTime > DISPLAY_TIMEOUT_MS) {
+        display.setBrightness(0);
+        goToLightSleep();
+        // Resumes here after wake
+        display.setBrightness(200);
+        screenOnTime = millis();
+        lastDraw = 0;
+    }
 }
