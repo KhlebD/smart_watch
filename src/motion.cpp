@@ -43,7 +43,7 @@ void motion_init() {
     delay(10);
     Serial.println("Accel configured");
 
-    writeReg(REG_INT_LOWHIGH + 2, 0x50);
+    writeReg(REG_INT_LOWHIGH + 2, 0xA0);
     writeReg(REG_INT_MOTION, 0x01);
     writeReg(REG_INT_EN_0, 0x07);
     writeReg(REG_INT_OUT_CTRL, 0x0A);

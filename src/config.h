@@ -44,7 +44,7 @@
 
 // Sleep time
 #define SLEEP_DURATION_SEC 20
-#define DISPLAY_TIMEOUT_MS 20000000  // screen stays on 10 seconds after touch wake
+#define DISPLAY_TIMEOUT_MS 20000  // screen stays on 10 seconds after touch wake
 
 // Touch things
 #define TAP_THRESHOLD          10

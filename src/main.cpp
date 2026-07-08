@@ -11,6 +11,7 @@
 #include "notif_screen.h"
 #include "touch.h"
 #include "watch_face.h"
+#include "motion.h"
 
 // ── Display state ─────────────────────────────────────────────────────────
 unsigned long screenOnTime = 0;
@@ -29,7 +30,7 @@ void setup() {
     resetTouch();
     pinMode(TOUCH_INT, INPUT);
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
-    //motion_init();
+    // motion_init();
     Wire.setClock(100000);
 
     configureTouch();
@@ -48,7 +49,7 @@ void setup() {
     if (!rtc.begin()) {
         Serial.println("RTC not found");
     }
-    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); // uncomment once to set
+    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // uncomment once to set
     // time
 
     // BLE
@@ -65,7 +66,6 @@ void setup() {
     Serial.println("Setup complete");
 }
 
-// ── Loop ──────────────────────────────────────────────────────────────────
 void loop() {
     unsigned long now = millis();
 
@@ -74,9 +74,9 @@ void loop() {
 
     if (touchEventFlag || wasDown) {
         touchEventFlag = false;
-        screenOnTime = now;
+        screenOnTime   = now;
 
-        int tx = 0, ty = 0;
+        int  tx = 0, ty = 0;
         bool fingerDown = false;
 
         Wire.beginTransmission(TOUCH_ADDR);
@@ -84,11 +84,11 @@ void loop() {
         if (Wire.endTransmission(false) == 0 &&
             Wire.requestFrom(TOUCH_ADDR, 6) == 6) {
             Wire.read();
-            int points = Wire.read();
-            byte xHigh = Wire.read();
-            byte xLow = Wire.read();
-            byte yHigh = Wire.read();
-            byte yLow = Wire.read();
+            int  points = Wire.read();
+            byte xHigh  = Wire.read();
+            byte xLow   = Wire.read();
+            byte yHigh  = Wire.read();
+            byte yLow   = Wire.read();
             if (points > 0) {
                 fingerDown = true;
                 tx = ((xHigh & 0x0F) << 8) | xLow;
@@ -96,10 +96,10 @@ void loop() {
             }
         }
 
-        lastTouchX = tx;
-        lastTouchY = ty;
+        lastTouchX    = tx;
+        lastTouchY    = ty;
         lastTouchDown = fingerDown;
-        wasDown = fingerDown;
+        wasDown       = fingerDown;
     }
 
     // ── Pending notification ────────────────────────────────────────────────
@@ -114,33 +114,35 @@ void loop() {
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         DateTime t = rtc.now();
-        watch_face_update(t.hour(), t.minute(), t.second(), getBatteryPercent(),
-                          bleConnected, t.day(), t.month());
+        watch_face_update(
+            t.hour(),
+            t.minute(),
+            t.second(),
+            getBatteryPercent(),
+            bleConnected,
+            t.day(),
+            t.month()
+        );
     }
 
     // ── Display timeout ─────────────────────────────────────────────────────
-    static unsigned long lastTimeoutPrint = 0;
-    if (now - lastTimeoutPrint >= 500) {
-        lastTimeoutPrint = now;
-        Serial.println("before timeout check");
-    }
     if (now - screenOnTime > DISPLAY_TIMEOUT_MS) {
         display.setBrightness(0);
-        //motion_sleep_start();
+        motion_sleep_start();
 
-        while (!touchEventFlag ) {
+        while (!touchEventFlag && !motion_get_flag()) {
             lv_timer_handler();
             delay(10);
         }
 
-        //motion_sleep_end();
+        motion_sleep_end();
         touchEventFlag = false;
         display.init();
         display.setBrightness(200);
-        //lv_obj_invalidate(lv_scr_act());
+        lv_obj_invalidate(lv_scr_act());
         lv_timer_handler();
         screenOnTime = millis();
-        lastDraw = 0;
+        lastDraw     = 0;
     }
 
     // ── LVGL ───────────────────────────────────────────────────────────────
