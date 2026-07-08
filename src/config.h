@@ -18,6 +18,9 @@
 // Battery
 #define BATTERY_PIN 34
 
+// Motion
+#define BMI160_INT1 32
+
 // BLE UUIDs
 #define BLE_SERVICE_UUID  "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define BLE_RX_UUID       "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -41,7 +44,7 @@
 
 // Sleep time
 #define SLEEP_DURATION_SEC 20
-#define DISPLAY_TIMEOUT_MS 20000  // screen stays on 10 seconds after touch wake
+#define DISPLAY_TIMEOUT_MS 20000000  // screen stays on 10 seconds after touch wake
 
 // Touch things
 #define TAP_THRESHOLD          10
