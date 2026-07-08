@@ -8,17 +8,24 @@
 #include "config.h"
 #include "globals.h"
 #include "lvgl_port.h"
+#include "motion.h"
 #include "notif_screen.h"
+#include "step_screen.h"
 #include "touch.h"
 #include "watch_face.h"
-#include "motion.h"
+#include "step_screen.h"
 
 // ── Display state ─────────────────────────────────────────────────────────
 unsigned long screenOnTime = 0;
 
 // ── Show watch face ───────────────────────────────────────────────────────
-void show_watch_face() {
-    lv_scr_load_anim(scr_watch, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200, 0, false);
+void show_watch_face(lv_scr_load_anim_t anim) {
+    lv_scr_load_anim(scr_watch, anim, 200, 0, false);
+}
+// ── Show steps screen ───────────────────────────────────────────────────────
+void show_step_screen() {
+    step_screen_update(motion_get_steps(), 10000);
+    step_screen_show();
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────
@@ -45,12 +52,15 @@ void setup() {
     // LVGL
     lvgl_port_init(display);
 
+    // Steps
+    step_screen_create();
+
     // RTC
     if (!rtc.begin()) {
         Serial.println("RTC not found");
     }
-    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // uncomment once to set
-    // time
+    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // uncomment once to set
+    //  time
 
     // BLE
     initBLE();
@@ -74,9 +84,9 @@ void loop() {
 
     if (touchEventFlag || wasDown) {
         touchEventFlag = false;
-        screenOnTime   = now;
+        screenOnTime = now;
 
-        int  tx = 0, ty = 0;
+        int tx = 0, ty = 0;
         bool fingerDown = false;
 
         Wire.beginTransmission(TOUCH_ADDR);
@@ -84,11 +94,11 @@ void loop() {
         if (Wire.endTransmission(false) == 0 &&
             Wire.requestFrom(TOUCH_ADDR, 6) == 6) {
             Wire.read();
-            int  points = Wire.read();
-            byte xHigh  = Wire.read();
-            byte xLow   = Wire.read();
-            byte yHigh  = Wire.read();
-            byte yLow   = Wire.read();
+            int points = Wire.read();
+            byte xHigh = Wire.read();
+            byte xLow = Wire.read();
+            byte yHigh = Wire.read();
+            byte yLow = Wire.read();
             if (points > 0) {
                 fingerDown = true;
                 tx = ((xHigh & 0x0F) << 8) | xLow;
@@ -96,10 +106,10 @@ void loop() {
             }
         }
 
-        lastTouchX    = tx;
-        lastTouchY    = ty;
+        lastTouchX = tx;
+        lastTouchY = ty;
         lastTouchDown = fingerDown;
-        wasDown       = fingerDown;
+        wasDown = fingerDown;
     }
 
     // ── Pending notification ────────────────────────────────────────────────
@@ -114,15 +124,8 @@ void loop() {
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         DateTime t = rtc.now();
-        watch_face_update(
-            t.hour(),
-            t.minute(),
-            t.second(),
-            getBatteryPercent(),
-            bleConnected,
-            t.day(),
-            t.month()
-        );
+        watch_face_update(t.hour(), t.minute(), t.second(), getBatteryPercent(),
+                          bleConnected, t.day(), t.month());
     }
 
     // ── Display timeout ─────────────────────────────────────────────────────
@@ -142,9 +145,16 @@ void loop() {
         lv_obj_invalidate(lv_scr_act());
         lv_timer_handler();
         screenOnTime = millis();
-        lastDraw     = 0;
+        lastDraw = 0;
     }
-
+    static unsigned long lastStepUpdate = 0;
+    if (now - lastStepUpdate >= 5000) {
+        lastStepUpdate = now;
+        // Only update if step screen is visible
+        if (lv_scr_act() == step_screen_get()) {
+            step_screen_update(motion_get_steps(), 10000);
+        }
+    }
     // ── LVGL ───────────────────────────────────────────────────────────────
     lv_timer_handler();
     delay(5);

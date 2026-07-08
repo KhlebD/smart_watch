@@ -1,6 +1,7 @@
 #include "watch_face.h"
 #include <math.h>
 #include <stdio.h>
+#include "main_funcs.h"
 
 #define CX 120
 #define CY 120
@@ -150,6 +151,14 @@ void watch_face_create(lv_obj_t *scr) {
     lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_14, 0);
     lv_label_set_text(lbl_date, "");
     lv_obj_align(lbl_date, LV_ALIGN_BOTTOM_MID, 0, -42);
+
+    // Swipe up to go to step screen — add at the end
+    lv_obj_add_event_cb(scr, [](lv_event_t *e) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        if (dir == LV_DIR_TOP) {
+            show_step_screen();
+        }
+    }, LV_EVENT_GESTURE, nullptr);
 }
 
 // ── Update ────────────────────────────────────────────────────────────────

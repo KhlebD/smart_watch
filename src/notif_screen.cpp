@@ -3,6 +3,7 @@
 #include "watch_face.h"
 #include <stdio.h>
 #include "lv_hebrew_fonts.h"
+#include "main_funcs.h"
 
 #define CARD_BG_COLOR  lv_color_make(0x22, 0x22, 0x22)
 #define TEXT_PRIMARY   lv_color_white()
@@ -49,7 +50,6 @@ static void dismiss_cb(lv_event_t *e) {
     build_list();
 
     if (notifQueue.empty()) {
-        extern void show_watch_face();
         show_watch_face();
     } else {
         lv_scr_load_anim(scr_list,
