@@ -43,12 +43,14 @@ void recoverI2C() {
 
     // Generate STOP condition
     digitalWrite(TOUCH_SDA, LOW);
-    delayMicroseconds(5);
+    delayMicroseconds(10);
     digitalWrite(TOUCH_SCL, HIGH);
-    delayMicroseconds(5);
+    delayMicroseconds(10);
     digitalWrite(TOUCH_SDA, HIGH);
-    delayMicroseconds(5);
+    delayMicroseconds(10);
 
+    Wire.begin(TOUCH_SDA, TOUCH_SCL);
+    Wire.setClock(50000);
     Serial.println("I2C bus recovered");
 }
 static bool readRaw(int &x, int &y, int &points) {

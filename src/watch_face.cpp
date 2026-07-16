@@ -1,6 +1,8 @@
 #include "watch_face.h"
+
 #include <math.h>
 #include <stdio.h>
+
 #include "main_funcs.h"
 
 #define CX 120
@@ -21,23 +23,24 @@ static lv_style_t sty_major_tick;
 static lv_style_t sty_minor_tick;
 
 // ── Widget handles ────────────────────────────────────────────────────────
-static lv_obj_t *hand_hour;
-static lv_obj_t *hand_minute;
-static lv_obj_t *hand_second;
-static lv_obj_t *hand_tail;
-static lv_obj_t *lbl_date;
-static lv_obj_t *lbl_battery;
-static lv_obj_t *lbl_ble;
+static lv_obj_t* hand_hour;
+static lv_obj_t* hand_minute;
+static lv_obj_t* hand_second;
+static lv_obj_t* hand_tail;
+static lv_obj_t* lbl_date;
+static lv_obj_t* lbl_battery;
+static lv_obj_t* lbl_ble;
+static lv_obj_t *lbl_temp;
 
 // ── Math helper ───────────────────────────────────────────────────────────
-static void calc_point(float angle_deg, int length, lv_point_t *out) {
+static void calc_point(float angle_deg, int length, lv_point_t* out) {
     float rad = (angle_deg - 90.0f) * (float)M_PI / 180.0f;
     out->x = (lv_coord_t)(CX + roundf(length * cosf(rad)));
     out->y = (lv_coord_t)(CY + roundf(length * sinf(rad)));
 }
 
 // ── Create ────────────────────────────────────────────────────────────────
-void watch_face_create(lv_obj_t *scr) {
+void watch_face_create(lv_obj_t* scr) {
     lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
@@ -54,15 +57,15 @@ void watch_face_create(lv_obj_t *scr) {
 
     // Draw 12 tick marks — create first so hands render on top
     for (int i = 0; i < 12; i++) {
-        float angle   = i * 30.0f;
-        bool  major   = (i % 3 == 0);
-        int   outer_r = 108;
-        int   inner_r = major ? 90 : 100;
+        float angle = i * 30.0f;
+        bool major = (i % 3 == 0);
+        int outer_r = 108;
+        int inner_r = major ? 90 : 100;
 
         calc_point(angle, outer_r, &tick_pts[i][0]);
         calc_point(angle, inner_r, &tick_pts[i][1]);
 
-        lv_obj_t *tick = lv_line_create(scr);
+        lv_obj_t* tick = lv_line_create(scr);
         lv_obj_add_style(tick, major ? &sty_major_tick : &sty_minor_tick, 0);
         lv_line_set_points(tick, tick_pts[i], 2);
     }
@@ -112,7 +115,7 @@ void watch_face_create(lv_obj_t *scr) {
     lv_line_set_points(hand_tail, pts_tail, 2);
 
     // Center dot — white outer
-    lv_obj_t *dot_white = lv_obj_create(scr);
+    lv_obj_t* dot_white = lv_obj_create(scr);
     lv_obj_set_size(dot_white, 10, 10);
     lv_obj_set_style_radius(dot_white, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(dot_white, lv_color_white(), 0);
@@ -122,7 +125,7 @@ void watch_face_create(lv_obj_t *scr) {
     lv_obj_align(dot_white, LV_ALIGN_CENTER, 0, 0);
 
     // Center dot — red inner
-    lv_obj_t *dot_red = lv_obj_create(scr);
+    lv_obj_t* dot_red = lv_obj_create(scr);
     lv_obj_set_size(dot_red, 5, 5);
     lv_obj_set_style_radius(dot_red, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(dot_red, lv_color_make(0xE2, 0x4B, 0x4A), 0);
@@ -140,7 +143,8 @@ void watch_face_create(lv_obj_t *scr) {
 
     // Battery label
     lbl_battery = lv_label_create(scr);
-    lv_obj_set_style_text_color(lbl_battery, lv_color_make(0x88, 0x88, 0x88), 0);
+    lv_obj_set_style_text_color(lbl_battery, lv_color_make(0x88, 0x88, 0x88),
+                                0);
     lv_obj_set_style_text_font(lbl_battery, &lv_font_montserrat_14, 0);
     lv_label_set_text(lbl_battery, "");
     lv_obj_align_to(lbl_battery, lbl_ble, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
@@ -152,21 +156,30 @@ void watch_face_create(lv_obj_t *scr) {
     lv_label_set_text(lbl_date, "");
     lv_obj_align(lbl_date, LV_ALIGN_BOTTOM_MID, 0, -42);
 
+    // Temperature label
+    lbl_temp = lv_label_create(scr);
+    lv_obj_set_style_text_color(lbl_temp, lv_color_make(0x88, 0x88, 0x88), 0);
+    lv_obj_set_style_text_font(lbl_temp, &lv_font_montserrat_14, 0);
+    lv_label_set_text(lbl_temp, "");
+    lv_obj_align(lbl_temp, LV_ALIGN_TOP_MID, 32, 36);
+
     // Swipe up to go to step screen — add at the end
-    lv_obj_add_event_cb(scr, [](lv_event_t *e) {
-        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-        if (dir == LV_DIR_TOP) {
-            show_step_screen();
-        }
-    }, LV_EVENT_GESTURE, nullptr);
+    lv_obj_add_event_cb(
+        scr,
+        [](lv_event_t* e) {
+            lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+            if (dir == LV_DIR_TOP) {
+                show_step_screen();
+            }
+        },
+        LV_EVENT_GESTURE, nullptr);
 }
 
 // ── Update ────────────────────────────────────────────────────────────────
-void watch_face_update(int hours, int minutes, int seconds,
-                       int battery, bool ble_connected,
-                       int day, int month) {
+void watch_face_update(int hours, int minutes, int seconds, int battery,
+                       bool ble_connected, int day, int month, float temperature) {
     // Angles
-    float hour_angle   = (hours % 12) * 30.0f + minutes * 0.5f;
+    float hour_angle = (hours % 12) * 30.0f + minutes * 0.5f;
     float minute_angle = minutes * 6.0f + seconds * 0.1f;
     float second_angle = seconds * 6.0f;
 
@@ -189,18 +202,23 @@ void watch_face_update(int hours, int minutes, int seconds,
     snprintf(bat_buf, sizeof(bat_buf), "%d%%", battery);
     lv_label_set_text(lbl_battery, bat_buf);
     lv_obj_set_style_text_color(lbl_battery,
-        battery > 20
-            ? lv_color_make(0x88, 0x88, 0x88)
-            : lv_color_make(0xE2, 0x4B, 0x4A), 0);
+                                battery > 20 ? lv_color_make(0x88, 0x88, 0x88)
+                                             : lv_color_make(0xE2, 0x4B, 0x4A),
+                                0);
 
     // BLE
     lv_obj_set_style_text_color(lbl_ble,
-        ble_connected
-            ? lv_color_make(0x44, 0x88, 0xFF)
-            : lv_color_make(0x44, 0x44, 0x44), 0);
+                                ble_connected ? lv_color_make(0x44, 0x88, 0xFF)
+                                              : lv_color_make(0x44, 0x44, 0x44),
+                                0);
 
     // Date
     char date_buf[8];
     snprintf(date_buf, sizeof(date_buf), "%02d/%02d", day, month);
     lv_label_set_text(lbl_date, date_buf);
+
+    // Temperature
+    char tempBuf[10];
+    snprintf(tempBuf, sizeof(tempBuf), "%.1f°", temperature);
+    lv_label_set_text(lbl_temp, tempBuf);
 }

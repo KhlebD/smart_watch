@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <lvgl.h>
 
+#include "baro.h"
 #include "battery.h"
 #include "ble_comm.h"
 #include "config.h"
@@ -13,7 +14,6 @@
 #include "step_screen.h"
 #include "touch.h"
 #include "watch_face.h"
-#include "step_screen.h"
 
 // ── Display state ─────────────────────────────────────────────────────────
 unsigned long screenOnTime = 0;
@@ -24,7 +24,7 @@ void show_watch_face(lv_scr_load_anim_t anim) {
 }
 // ── Show steps screen ───────────────────────────────────────────────────────
 void show_step_screen() {
-    step_screen_update(motion_get_steps(), 10000);
+    step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
     step_screen_show();
 }
 
@@ -37,8 +37,9 @@ void setup() {
     resetTouch();
     pinMode(TOUCH_INT, INPUT);
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
-    // motion_init();
-    Wire.setClock(100000);
+    motion_init();
+    baro_init();
+    Wire.setClock(50000);
 
     configureTouch();
     setupTouchInterrupt(TOUCH_INT);
@@ -124,8 +125,19 @@ void loop() {
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         DateTime t = rtc.now();
-        watch_face_update(t.hour(), t.minute(), t.second(), getBatteryPercent(),
-                          bleConnected, t.day(), t.month());
+
+        if (t.hour() < 24 && t.minute() < 60 && t.second() < 60) {
+            watch_face_update(t.hour(), t.minute(), t.second(),
+                              getBatteryPercent(), bleConnected, t.day(),
+                              t.month(), baro_get_temperature());
+        } else {
+            Serial.println("Bad RTC read — recovering bus");
+            recoverI2C();
+            // Reinit devices after recovery
+            if (!rtc.begin()) {
+                Serial.println("RTC reinit failed");
+            }
+        }
     }
 
     // ── Display timeout ─────────────────────────────────────────────────────
@@ -152,7 +164,7 @@ void loop() {
         lastStepUpdate = now;
         // Only update if step screen is visible
         if (lv_scr_act() == step_screen_get()) {
-            step_screen_update(motion_get_steps(), 10000);
+            step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
         }
     }
     // ── LVGL ───────────────────────────────────────────────────────────────
