@@ -43,8 +43,7 @@
 #define CARD_PADDING           8
 
 // Sleep time
-#define SLEEP_DURATION_SEC 20
-#define DISPLAY_TIMEOUT_MS 20000  // screen stays on 10 seconds after touch wake
+#define SLEEP_DURATION_SEC 60 
 
 // Touch things
 #define TAP_THRESHOLD          10

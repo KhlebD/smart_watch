@@ -1,31 +1,53 @@
 #include <Arduino.h>
-#include <RTClib.h>
 #include <Wire.h>
 #include <lvgl.h>
-
-#include "baro.h"
-#include "battery.h"
-#include "ble_comm.h"
+#include <RTClib.h>
+#include <MAX30105.h>
+#include <heartRate.h>
 #include "config.h"
 #include "globals.h"
+#include "touch.h"
+#include "ble_comm.h"
+#include "battery.h"
 #include "lvgl_port.h"
-#include "motion.h"
+#include "watch_face.h"
 #include "notif_screen.h"
 #include "step_screen.h"
-#include "touch.h"
-#include "watch_face.h"
+#include "hr_screen.h"
+#include "motion.h"
+#include "baro.h"
+#include "main_funcs.h"
+
 
 // ── Display state ─────────────────────────────────────────────────────────
 unsigned long screenOnTime = 0;
 
-// ── Show watch face ───────────────────────────────────────────────────────
+// ── Heart rate ────────────────────────────────────────────────────────────
+MAX30105 particleSensor;
+bool     hrSensorReady = false;
+
+const byte RATE_SIZE = 4;
+byte  hrRates[RATE_SIZE];
+byte  hrRateSpot = 0;
+long  hrLastBeat = 0;
+int   hrBeatAvg  = 0;
+long  hrIrValue  = 0;
+
+// ── Public functions ──────────────────────────────────────────────────────
 void show_watch_face(lv_scr_load_anim_t anim) {
     lv_scr_load_anim(scr_watch, anim, 200, 0, false);
 }
-// ── Show steps screen ───────────────────────────────────────────────────────
+
 void show_step_screen() {
     step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
     step_screen_show();
+}
+
+void show_hr_screen() {
+    hrBeatAvg  = 0;
+    hrRateSpot = 0;
+    memset(hrRates, 0, sizeof(hrRates));
+    hr_screen_show();
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────
@@ -33,50 +55,63 @@ void setup() {
     Serial.begin(115200);
     delay(100);
 
-    // Touch
+    // ── Touch + I2C main bus ──────────────────────────────────────────────
     resetTouch();
     pinMode(TOUCH_INT, INPUT);
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
-    motion_init();
-    baro_init();
     Wire.setClock(50000);
-
     configureTouch();
     setupTouchInterrupt(TOUCH_INT);
 
-    // Display
+    // ── RTC ───────────────────────────────────────────────────────────────
+    if (!rtc.begin()) {
+        Serial.println("RTC not found");
+    }
+    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); // uncomment once to set time
+
+    // ── Motion sensor (BMI160) ────────────────────────────────────────────
+    motion_init();
+
+    // ── Barometric sensor (BMP280) ────────────────────────────────────────
+    baro_init();
+
+    // ── Heart rate (MAX30102) on Wire1 ────────────────────────────────────
+    Wire1.begin(13, 14);
+    Wire1.setClock(400000);
+    if (!particleSensor.begin(Wire1, I2C_SPEED_FAST)) {
+        Serial.println("MAX30102 not found");
+    } else {
+        particleSensor.setup();
+        particleSensor.setPulseAmplitudeRed(0x0A);
+        particleSensor.setPulseAmplitudeGreen(0);
+        hrSensorReady = true;
+        Serial.println("MAX30102 ok");
+    }
+
+    // ── Display ───────────────────────────────────────────────────────────
     display.init();
     display.setRotation(0);
     display.invertDisplay(true);
     display.setBrightness(200);
 
-    // LVGL
+    // ── LVGL ─────────────────────────────────────────────────────────────
     lvgl_port_init(display);
 
-    // Steps
-    step_screen_create();
-
-    // RTC
-    if (!rtc.begin()) {
-        Serial.println("RTC not found");
-    }
-    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // uncomment once to set
-    //  time
-
-    // BLE
+    // ── BLE ───────────────────────────────────────────────────────────────
     initBLE();
 
-    // Watch face screen
+    // ── Screens ───────────────────────────────────────────────────────────
     scr_watch = lv_scr_act();
     watch_face_create(scr_watch);
-
-    // Notification screens
     notif_screen_create();
+    step_screen_create();
+    hr_screen_create();
 
     screenOnTime = millis();
     Serial.println("Setup complete");
 }
 
+// ── Loop ──────────────────────────────────────────────────────────────────
 void loop() {
     unsigned long now = millis();
 
@@ -85,9 +120,9 @@ void loop() {
 
     if (touchEventFlag || wasDown) {
         touchEventFlag = false;
-        screenOnTime = now;
+        screenOnTime   = now;
 
-        int tx = 0, ty = 0;
+        int  tx = 0, ty = 0;
         bool fingerDown = false;
 
         Wire.beginTransmission(TOUCH_ADDR);
@@ -95,11 +130,11 @@ void loop() {
         if (Wire.endTransmission(false) == 0 &&
             Wire.requestFrom(TOUCH_ADDR, 6) == 6) {
             Wire.read();
-            int points = Wire.read();
-            byte xHigh = Wire.read();
-            byte xLow = Wire.read();
-            byte yHigh = Wire.read();
-            byte yLow = Wire.read();
+            int  points = Wire.read();
+            byte xHigh  = Wire.read();
+            byte xLow   = Wire.read();
+            byte yHigh  = Wire.read();
+            byte yLow   = Wire.read();
             if (points > 0) {
                 fingerDown = true;
                 tx = ((xHigh & 0x0F) << 8) | xLow;
@@ -107,10 +142,10 @@ void loop() {
             }
         }
 
-        lastTouchX = tx;
-        lastTouchY = ty;
+        lastTouchX    = tx;
+        lastTouchY    = ty;
         lastTouchDown = fingerDown;
-        wasDown = fingerDown;
+        wasDown       = fingerDown;
     }
 
     // ── Pending notification ────────────────────────────────────────────────
@@ -120,23 +155,58 @@ void loop() {
         screenOnTime = now;
     }
 
+    // ── Heart rate ──────────────────────────────────────────────────────────
+    if (hrSensorReady && lv_scr_act() == hr_screen_get()) {
+        hrIrValue = particleSensor.getIR();
+        if (checkForBeat(hrIrValue)) {
+            long delta = millis() - hrLastBeat;
+            hrLastBeat = millis();
+            float bpm  = 60 / (delta / 1000.0);
+            if (bpm > 20 && bpm < 255) {
+                hrRates[hrRateSpot++] = (byte)bpm;
+                hrRateSpot %= RATE_SIZE;
+                hrBeatAvg = 0;
+                for (byte x = 0; x < RATE_SIZE; x++) hrBeatAvg += hrRates[x];
+                hrBeatAvg /= RATE_SIZE;
+            }
+        }
+
+        static unsigned long lastHrUpdate = 0;
+        if (now - lastHrUpdate >= 1000) {
+            lastHrUpdate = now;
+            hr_screen_update(hrBeatAvg, hrIrValue);
+        }
+    }
+
     // ── Update watch face every second ──────────────────────────────────────
     static unsigned long lastUpdate = 0;
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         DateTime t = rtc.now();
-
         if (t.hour() < 24 && t.minute() < 60 && t.second() < 60) {
-            watch_face_update(t.hour(), t.minute(), t.second(),
-                              getBatteryPercent(), bleConnected, t.day(),
-                              t.month(), baro_get_temperature());
+            watch_face_update(
+                t.hour(),
+                t.minute(),
+                t.second(),
+                getBatteryPercent(),
+                bleConnected,
+                t.day(),
+                t.month(),
+                baro_get_temperature()
+            );
         } else {
             Serial.println("Bad RTC read — recovering bus");
             recoverI2C();
-            // Reinit devices after recovery
-            if (!rtc.begin()) {
-                Serial.println("RTC reinit failed");
-            }
+            rtc.begin();
+        }
+    }
+
+    // ── Update step screen every 5 seconds ─────────────────────────────────
+    static unsigned long lastStepUpdate = 0;
+    if (now - lastStepUpdate >= 5000) {
+        lastStepUpdate = now;
+        if (lv_scr_act() == step_screen_get()) {
+            step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
         }
     }
 
@@ -157,16 +227,9 @@ void loop() {
         lv_obj_invalidate(lv_scr_act());
         lv_timer_handler();
         screenOnTime = millis();
-        lastDraw = 0;
+        lastDraw     = 0;
     }
-    static unsigned long lastStepUpdate = 0;
-    if (now - lastStepUpdate >= 5000) {
-        lastStepUpdate = now;
-        // Only update if step screen is visible
-        if (lv_scr_act() == step_screen_get()) {
-            step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
-        }
-    }
+
     // ── LVGL ───────────────────────────────────────────────────────────────
     lv_timer_handler();
     delay(5);

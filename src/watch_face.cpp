@@ -30,7 +30,7 @@ static lv_obj_t* hand_tail;
 static lv_obj_t* lbl_date;
 static lv_obj_t* lbl_battery;
 static lv_obj_t* lbl_ble;
-static lv_obj_t *lbl_temp;
+static lv_obj_t* lbl_temp;
 
 // ── Math helper ───────────────────────────────────────────────────────────
 static void calc_point(float angle_deg, int length, lv_point_t* out) {
@@ -163,13 +163,17 @@ void watch_face_create(lv_obj_t* scr) {
     lv_label_set_text(lbl_temp, "");
     lv_obj_align(lbl_temp, LV_ALIGN_TOP_MID, 32, 36);
 
-    // Swipe up to go to step screen — add at the end
+    // Swipe up → step screen, swipe down → heart rate screen
     lv_obj_add_event_cb(
         scr,
         [](lv_event_t* e) {
             lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
             if (dir == LV_DIR_TOP) {
+                extern void show_step_screen();
                 show_step_screen();
+            } else if (dir == LV_DIR_BOTTOM) {
+                extern void show_hr_screen();
+                show_hr_screen();
             }
         },
         LV_EVENT_GESTURE, nullptr);
@@ -177,7 +181,8 @@ void watch_face_create(lv_obj_t* scr) {
 
 // ── Update ────────────────────────────────────────────────────────────────
 void watch_face_update(int hours, int minutes, int seconds, int battery,
-                       bool ble_connected, int day, int month, float temperature) {
+                       bool ble_connected, int day, int month,
+                       float temperature) {
     // Angles
     float hour_angle = (hours % 12) * 30.0f + minutes * 0.5f;
     float minute_angle = minutes * 6.0f + seconds * 0.1f;
