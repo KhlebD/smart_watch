@@ -43,7 +43,7 @@
 #define CARD_PADDING           8
 
 // Sleep time
-#define SLEEP_DURATION_SEC 60 
+#define DISPLAY_TIMEOUT_MS 20000
 
 // Touch things
 #define TAP_THRESHOLD          10
