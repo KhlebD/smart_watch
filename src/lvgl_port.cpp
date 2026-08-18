@@ -54,5 +54,5 @@ void lvgl_port_init(LGFX &display) {
     indev_drv.read_cb = touch_read;
     lv_indev_drv_register(&indev_drv);
 
-    Serial.println("LVGL v8 port initialized");
+    Serial2.println("LVGL v8 port initialized");
 }

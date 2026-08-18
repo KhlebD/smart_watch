@@ -42,9 +42,6 @@ extern volatile int prevScreen;
 extern volatile unsigned long lastDraw;
 extern volatile unsigned long notifyTime;
 
-extern String notifySrc;
-extern String notifyTitle;
-extern String notifyBody;
 extern String bleBuffer;
 
 extern volatile bool touchEventFlag;

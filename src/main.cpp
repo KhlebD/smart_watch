@@ -54,7 +54,7 @@ void show_hr_screen() {
 // ── Setup ─────────────────────────────────────────────────────────────────
 void setup() {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
-    Serial.begin(115200);
+    Serial2.begin(115200);
     delay(100);
 
     // ── Touch + I2C main bus ──────────────────────────────────────────────
@@ -67,7 +67,7 @@ void setup() {
 
     // ── RTC ───────────────────────────────────────────────────────────────
     if (!rtc.begin()) {
-        Serial.println("RTC not found");
+        Serial2.println("RTC not found");
     }
     // rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); // uncomment once to set time
 
@@ -78,16 +78,16 @@ void setup() {
     baro_init();
 
     // ── Heart rate (MAX30102) on Wire1 ────────────────────────────────────
-    Wire1.begin(13, 14);
+    Wire1.begin(HR_SDA, HR_SCL);
     Wire1.setClock(400000);
     if (!particleSensor.begin(Wire1, I2C_SPEED_FAST)) {
-        Serial.println("MAX30102 not found");
+        Serial2.println("MAX30102 not found");
     } else {
         particleSensor.setup();
         particleSensor.setPulseAmplitudeRed(0x0A);
         particleSensor.setPulseAmplitudeGreen(0);
         hrSensorReady = true;
-        Serial.println("MAX30102 ok");
+        Serial2.println("MAX30102 ok");
     }
 
     // ── Display ───────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ void setup() {
     hr_screen_create();
 
     screenOnTime = millis();
-    Serial.println("Setup complete");
+    Serial2.println("Setup complete");
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ void loop() {
                 baro_get_temperature()
             );
         } else {
-            Serial.println("Bad RTC read — recovering bus");
+            Serial2.println("Bad RTC read — recovering bus");
             recoverI2C();
             rtc.begin();
         }

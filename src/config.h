@@ -1,25 +1,29 @@
 #pragma once
 
-// Display pins
-#define LCD_MOSI 23
-#define LCD_SCLK 18
-#define LCD_CS   5
-#define LCD_DC   26
-#define LCD_RST  25
-#define LCD_BL   4
+// Display
+#define LCD_MOSI 7
+#define LCD_SCLK 8
+#define LCD_CS   9
+#define LCD_DC   10
+#define LCD_RST  11
+#define LCD_BL   12
 
-// Touch pins
-#define TOUCH_SDA  21
-#define TOUCH_SCL  22
-#define TOUCH_INT  33 // changed from 19, WROVER prototyping only — RTC-capable pin needed for deep sleep wake
-#define TOUCH_RST  15
+// Touch
+#define TOUCH_SDA  3
+#define TOUCH_SCL  4
+#define TOUCH_INT  5
+#define TOUCH_RST  6
 #define TOUCH_ADDR 0x15
 
-// Battery
-#define BATTERY_PIN 34
-
 // Motion
-#define BMI160_INT1 32
+#define BMI160_INT1 1
+
+// Battery
+#define BATTERY_PIN 2
+
+// Heart rate on Wire1
+#define HR_SDA 13
+#define HR_SCL 14
 
 // BLE UUIDs
 #define BLE_SERVICE_UUID  "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"

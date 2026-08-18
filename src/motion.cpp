@@ -34,25 +34,25 @@ static void writeReg(uint8_t reg, uint8_t val) {
 }
 
 void motion_init() {
-    Serial.println("BMI160 init start");
+    Serial2.println("BMI160 init start");
     writeReg(REG_CMD, 0xB6);
     delay(100);
-    Serial.println("Reset done");
+    Serial2.println("Reset done");
 
     writeReg(REG_CMD, CMD_ACC_NORMAL);
     delay(100);
-    Serial.println("Accel awake");
+    Serial2.println("Accel awake");
 
     writeReg(REG_ACC_CONF, 0x28);
     writeReg(REG_ACC_RANGE, 0x05);
     delay(10);
-    Serial.println("Accel configured");
+    Serial2.println("Accel configured");
 
     writeReg(REG_STEP_CONF_0, 0x2D);
     writeReg(REG_STEP_CONF_1, 0x08);
     writeReg(REG_CMD, CMD_STEP_CLR);
     delay(10);
-    Serial.println("Step counter enabled");
+    Serial2.println("Step counter enabled");
 
     writeReg(REG_INT_LOWHIGH + 2, 0xA0);
     writeReg(REG_INT_MOTION, 0x01);
@@ -60,13 +60,13 @@ void motion_init() {
     writeReg(REG_INT_OUT_CTRL, 0x0A);
     writeReg(REG_INT_MAP_0, 0x04);
     delay(10);
-    Serial.println("Interrupts configured");
+    Serial2.println("Interrupts configured");
 
     pinMode(BMI160_INT1, INPUT);
-    Serial.println("Pin mode set");
+    Serial2.println("Pin mode set");
 
     attachInterrupt(digitalPinToInterrupt(BMI160_INT1), motionISR, RISING);
-    Serial.println("BMI160 initialized with interrupt");
+    Serial2.println("BMI160 initialized with interrupt");
 }
 
 bool motion_detected() {

@@ -1,5 +1,6 @@
-#include "ble_comm.h"
 
+#include "ble_comm.h"
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <BLESecurity.h>
 #include <NimBLEDevice.h>
@@ -12,16 +13,16 @@
 class ServerCallbacks : public NimBLEServerCallbacks {
     void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
         bleConnected = true;
-        Serial.println("BLE connected");
+        Serial2.println("BLE connected");
     }
 
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo,
                       int reason) override {
         bleConnected = false;
-        Serial.println("BLE disconnected, reason:");
-        Serial.println(reason);
+        Serial2.println("BLE disconnected, reason:");
+        Serial2.println(reason);
         NimBLEDevice::startAdvertising();
-        Serial.println("BLE advertising restarted");
+        Serial2.println("BLE advertising restarted");
     }
 };
 class RxCallbacks : public NimBLECharacteristicCallbacks {
@@ -39,8 +40,8 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
         }
 
         bleBuffer += value;
-        Serial.print("BLE buffer: ");
-        Serial.println(bleBuffer);
+        Serial2.print("BLE buffer: ");
+        Serial2.println(bleBuffer);
 
         String toParse = bleBuffer;
         while (toParse.length() > 0 &&
@@ -62,13 +63,13 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
 
         StaticJsonDocument<512> doc;
         DeserializationError err = deserializeJson(doc, toParse);
-        Serial.print("Parsing: ");
-        Serial.println(toParse);
+        Serial2.print("Parsing: ");
+        Serial2.println(toParse);
         bleBuffer = "";
 
         if (err) {
-            Serial.print("JSON parse error: ");
-            Serial.println(err.c_str());
+            Serial2.print("JSON parse error: ");
+            Serial2.println(err.c_str());
             return;
         }
 
@@ -81,7 +82,7 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
             notif.title = doc["title"] | "";
             notif.body = doc["body"] | "";
             notifQueue.push_back(notif);
-            Serial.printf("Queued notification, total: %d\n",
+            Serial2.printf("Queued notification, total: %d\n",
                           notifQueue.size());
             pendingNotification = true;
         }
@@ -94,7 +95,7 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
             long unixTime = doc["time"];
             if (unixTime > 0) {
                 rtc.adjust(DateTime(unixTime));
-                Serial.println("RTC synced via BLE");
+                Serial2.println("RTC synced via BLE");
             }
         }
     }
@@ -121,5 +122,5 @@ void initBLE() {
     pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
     NimBLEDevice::startAdvertising();
 
-    Serial.println("BLE advertising as Watch_GB");
+    Serial2.println("BLE advertising as Watch_GB");
 }

@@ -85,37 +85,6 @@ void drawDateScreen(DateTime& now) {
     sprite.pushSprite(0, 0);
 }
 
-void drawNotifyScreen() {
-    sprite.fillScreen(TFT_BLACK);
-
-    sprite.setTextSize(1);
-    sprite.setTextColor(TFT_WHITE);
-    int sw = sprite.textWidth(notifySrc.c_str());
-    sprite.setCursor((240 - sw) / 2, 55);
-    sprite.print(notifySrc);
-
-    sprite.drawFastHLine(40, 70, 160, 0x4208);
-
-    sprite.setTextSize(2);
-    sprite.setTextColor(TFT_WHITE);
-    sprite.setTextWrap(true);
-    sprite.setCursor(20, 85);
-    sprite.print(notifyTitle);
-
-    sprite.setTextSize(1);
-    sprite.setTextColor(TFT_WHITE);
-    sprite.setCursor(20, 130);
-    sprite.print(notifyBody.substring(0, 120));
-
-    sprite.setTextSize(1);
-    sprite.setTextColor(0xBDF7);
-    String hint = "tap to dismiss";
-    int hw = sprite.textWidth(hint.c_str());
-    sprite.setCursor((240 - hw) / 2, 200);
-    sprite.print(hint);
-
-    sprite.pushSprite(0, 0);
-}
 
 String truncate(String s, int maxLen) {
     if (s.length() <= (unsigned)maxLen) return s;
