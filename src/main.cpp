@@ -17,8 +17,6 @@
 #include "motion.h"
 #include "baro.h"
 #include "main_funcs.h"
-#include "soc/soc.h"
-#include "soc/rtc_cntl_reg.h"
 
 // ── Display state ─────────────────────────────────────────────────────────
 unsigned long screenOnTime = 0;
@@ -53,7 +51,6 @@ void show_hr_screen() {
 
 // ── Setup ─────────────────────────────────────────────────────────────────
 void setup() {
-    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
     Serial2.begin(115200);
     delay(100);
 

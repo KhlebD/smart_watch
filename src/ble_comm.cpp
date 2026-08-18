@@ -1,33 +1,26 @@
-
 #include "ble_comm.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <BLESecurity.h>
 #include <NimBLEDevice.h>
-
-#include "config.h"
-#include "display.h"
 #include "globals.h"
 #include "notif_screen.h"
 
 class ServerCallbacks : public NimBLEServerCallbacks {
-    void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
+    void onConnect(NimBLEServer* pServer) override {
         bleConnected = true;
-        Serial2.println("BLE connected");
+        Serial.println("BLE connected");
     }
 
-    void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo,
-                      int reason) override {
+    void onDisconnect(NimBLEServer* pServer) override {
         bleConnected = false;
-        Serial2.println("BLE disconnected, reason:");
-        Serial2.println(reason);
+        Serial.println("BLE disconnected");
         NimBLEDevice::startAdvertising();
-        Serial2.println("BLE advertising restarted");
+        Serial.println("BLE advertising restarted");
     }
 };
+
 class RxCallbacks : public NimBLECharacteristicCallbacks {
-    void onWrite(NimBLECharacteristic* pCharacteristic,
-                 NimBLEConnInfo& connInfo) override {
+    void onWrite(NimBLECharacteristic* pCharacteristic) override {
         String value = pCharacteristic->getValue().c_str();
         if (value.length() == 0) return;
 
@@ -40,8 +33,8 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
         }
 
         bleBuffer += value;
-        Serial2.print("BLE buffer: ");
-        Serial2.println(bleBuffer);
+        Serial.print("BLE buffer: ");
+        Serial.println(bleBuffer);
 
         String toParse = bleBuffer;
         while (toParse.length() > 0 &&
@@ -63,13 +56,13 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
 
         StaticJsonDocument<512> doc;
         DeserializationError err = deserializeJson(doc, toParse);
-        Serial2.print("Parsing: ");
-        Serial2.println(toParse);
+        Serial.print("Parsing: ");
+        Serial.println(toParse);
         bleBuffer = "";
 
         if (err) {
-            Serial2.print("JSON parse error: ");
-            Serial2.println(err.c_str());
+            Serial.print("JSON parse error: ");
+            Serial.println(err.c_str());
             return;
         }
 
@@ -78,24 +71,24 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
 
         if (strcmp(type, "notify") == 0) {
             WatchNotification notif;
-            notif.src = doc["src"] | "Unknown";
+            notif.src   = doc["src"]   | "Unknown";
             notif.title = doc["title"] | "";
-            notif.body = doc["body"] | "";
+            notif.body  = doc["body"]  | "";
             notifQueue.push_back(notif);
-            Serial2.printf("Queued notification, total: %d\n",
-                          notifQueue.size());
+            Serial.printf("Queued notification, total: %d\n", notifQueue.size());
             pendingNotification = true;
         }
 
         if (strcmp(type, "notify-remove") == 0) {
-            // Nothing to do for now — user dismisses manually on watch
+            // Nothing to do — user dismisses manually on watch
         }
 
         if (strcmp(type, "setTime") == 0) {
             long unixTime = doc["time"];
             if (unixTime > 0) {
-                rtc.adjust(DateTime(unixTime));
-                Serial2.println("RTC synced via BLE");
+                struct timeval tv = { .tv_sec = (time_t)unixTime };
+                settimeofday(&tv, nullptr);
+                Serial.println("Internal RTC synced via BLE");
             }
         }
     }
@@ -122,5 +115,5 @@ void initBLE() {
     pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
     NimBLEDevice::startAdvertising();
 
-    Serial2.println("BLE advertising as Watch_GB");
+    Serial.println("BLE advertising as Watch_GB");
 }
