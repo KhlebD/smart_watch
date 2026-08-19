@@ -1,7 +1,6 @@
 #include "ble_comm.h"
 
 #include <ArduinoJson.h>
-#include <BLESecurity.h>
 #include <NimBLEDevice.h>
 
 #include "config.h"
