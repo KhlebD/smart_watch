@@ -22,7 +22,7 @@ void configureTouch() {
     Wire.write(0xFA);
     Wire.write(0x60);
     Wire.endTransmission();
-    Serial2.println("Touch ISR configured");
+    Serial.println("Touch ISR configured");
 }
 
 void setupTouchInterrupt(int intPin) {
@@ -51,7 +51,7 @@ void recoverI2C() {
 
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
     Wire.setClock(50000);
-    Serial2.println("I2C bus recovered");
+    Serial.println("I2C bus recovered");
 }
 static bool readRaw(int &x, int &y, int &points) {
     Wire.beginTransmission(TOUCH_ADDR);

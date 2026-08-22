@@ -8,7 +8,7 @@ static bool initialized = false;
 
 void baro_init() {
     if (!bmp.begin(0x77)) {
-        Serial2.println("BMP280 not found");
+        Serial.println("BMP280 not found");
         return;
     }
     bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
@@ -17,7 +17,7 @@ void baro_init() {
                     Adafruit_BMP280::FILTER_X16,
                     Adafruit_BMP280::STANDBY_MS_500);
     initialized = true;
-    Serial2.println("BMP280 initialized");
+    Serial.println("BMP280 initialized");
 }
 
 float baro_get_altitude() {
