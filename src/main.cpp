@@ -22,6 +22,15 @@
 static lv_obj_t* lbl_touch = nullptr;
 unsigned long screenOnTime = 0;
 
+MAX30105 particleSensor;
+bool     hrSensorReady = false;
+const byte RATE_SIZE = 4;
+byte  hrRates[RATE_SIZE];
+byte  hrRateSpot = 0;
+long  hrLastBeat = 0;
+int   hrBeatAvg  = 0;
+long  hrIrValue  = 0;
+
 void show_watch_face(lv_scr_load_anim_t anim) {
     lv_scr_load_anim(scr_watch, anim, 200, 0, false);
 }
@@ -31,7 +40,12 @@ void show_step_screen() {
     step_screen_show();
 }
 
-void show_hr_screen() { hr_screen_show(); }
+void show_hr_screen() {
+    hrBeatAvg  = 0;
+    hrRateSpot = 0;
+    memset(hrRates, 0, sizeof(hrRates));
+    hr_screen_show();
+}
 
 void setup() {
     Serial.begin(115200);
@@ -45,6 +59,16 @@ void setup() {
     baro_init();
     // Motion
     motion_init();
+    // Heart Rate
+    if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) {
+    Serial.println("MAX30102 not found");
+} else {
+    particleSensor.setup();
+    particleSensor.setPulseAmplitudeRed(0x0A);
+    particleSensor.setPulseAmplitudeGreen(0);
+    hrSensorReady = true;
+    Serial.println("MAX30102 ok");
+}
     Wire.setClock(50000);
     configureTouch();
     setupTouchInterrupt(TOUCH_INT);
