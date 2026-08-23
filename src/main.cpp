@@ -23,13 +23,13 @@ static lv_obj_t* lbl_touch = nullptr;
 unsigned long screenOnTime = 0;
 
 MAX30105 particleSensor;
-bool     hrSensorReady = false;
+bool hrSensorReady = false;
 const byte RATE_SIZE = 4;
-byte  hrRates[RATE_SIZE];
-byte  hrRateSpot = 0;
-long  hrLastBeat = 0;
-int   hrBeatAvg  = 0;
-long  hrIrValue  = 0;
+byte hrRates[RATE_SIZE];
+byte hrRateSpot = 0;
+long hrLastBeat = 0;
+int hrBeatAvg = 0;
+long hrIrValue = 0;
 
 void show_watch_face(lv_scr_load_anim_t anim) {
     lv_scr_load_anim(scr_watch, anim, 200, 0, false);
@@ -41,7 +41,7 @@ void show_step_screen() {
 }
 
 void show_hr_screen() {
-    hrBeatAvg  = 0;
+    hrBeatAvg = 0;
     hrRateSpot = 0;
     memset(hrRates, 0, sizeof(hrRates));
     hr_screen_show();
@@ -60,15 +60,18 @@ void setup() {
     // Motion
     motion_init();
     // Heart Rate
-    if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) {
-    Serial.println("MAX30102 not found");
-} else {
-    particleSensor.setup();
-    particleSensor.setPulseAmplitudeRed(0x0A);
-    particleSensor.setPulseAmplitudeGreen(0);
-    hrSensorReady = true;
-    Serial.println("MAX30102 ok");
-}
+    Wire1.begin(13, 14);
+    Wire1.setClock(400000);
+    if (!particleSensor.begin(Wire1, I2C_SPEED_FAST)) {
+        Serial.println("MAX30102 not found");
+    } else {
+        particleSensor.setup();
+        particleSensor.setPulseAmplitudeRed(0x0A);
+        particleSensor.setPulseAmplitudeGreen(0);
+        hrSensorReady = true;
+        Serial.println("MAX30102 ok");
+    }
+
     Wire.setClock(50000);
     configureTouch();
     setupTouchInterrupt(TOUCH_INT);
@@ -134,15 +137,34 @@ void loop() {
         wasDown = fingerDown;
     }
 
+    // ── Heart Rate ───────────────────────────────────────────
+    if (hrSensorReady && lv_scr_act() == hr_screen_get()) {
+        hrIrValue = particleSensor.getIR();
+        if (checkForBeat(hrIrValue)) {
+            long delta = millis() - hrLastBeat;
+            hrLastBeat = millis();
+            float bpm = 60 / (delta / 1000.0);
+            if (bpm > 20 && bpm < 255) {
+                hrRates[hrRateSpot++] = (byte)bpm;
+                hrRateSpot %= RATE_SIZE;
+                hrBeatAvg = 0;
+                for (byte x = 0; x < RATE_SIZE; x++) hrBeatAvg += hrRates[x];
+                hrBeatAvg /= RATE_SIZE;
+            }
+        }
+        static unsigned long lastHrUpdate = 0;
+        if (now - lastHrUpdate >= 1000) {
+            lastHrUpdate = now;
+            hr_screen_update(hrBeatAvg, hrIrValue);
+        }
+    }
     // ── Update watch face every second with fake time ───────────────────────
     static unsigned long lastUpdate = 0;
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         unsigned long s = now / 1000;
         watch_face_update((s / 3600) % 12, (s / 60) % 60, s % 60, 75,
-                          bleConnected, 19, 8,
-                          baro_get_temperature() 
-        );
+                          bleConnected, 19, 8, baro_get_temperature());
     }
 
     if (pendingNotification) {
