@@ -1,14 +1,14 @@
 #include "lvgl_port.h"
 #include "config.h"
 #include "globals.h"
+#include <esp_heap_caps.h>
 
 static LGFX* _display = nullptr;
 
 static lv_disp_draw_buf_t draw_buf;
-static lv_color_t buf1[240 * 20];
-static lv_color_t buf2[240 * 20];
+static lv_color_t *buf1 = nullptr;
+static lv_color_t *buf2 = nullptr;
 
-// v8 flush callback
 static void disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
     uint32_t w = area->x2 - area->x1 + 1;
     uint32_t h = area->y2 - area->y1 + 1;
@@ -19,7 +19,6 @@ static void disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *c
     lv_disp_flush_ready(disp);
 }
 
-// v8 touch callback
 static void touch_read(lv_indev_drv_t *indev, lv_indev_data_t *data) {
     if (lastTouchDown) {
         data->state   = LV_INDEV_STATE_PR;
@@ -35,10 +34,22 @@ void lvgl_port_init(LGFX &display) {
 
     lv_init();
 
-    // Display buffer
-    lv_disp_draw_buf_init(&draw_buf, buf1, buf2, 240 * 20);
+    // Allocate draw buffers in PSRAM
+    buf1 = (lv_color_t*)heap_caps_malloc(
+        240 * 20 * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+    buf2 = (lv_color_t*)heap_caps_malloc(
+        240 * 20 * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
 
-    // Display driver
+    if (!buf1 || !buf2) {
+        Serial.println("PSRAM alloc failed — falling back to internal RAM");
+        static lv_color_t fallback1[240 * 10];
+        static lv_color_t fallback2[240 * 10];
+        lv_disp_draw_buf_init(&draw_buf, fallback1, fallback2, 240 * 10);
+    } else {
+        Serial.println("LVGL buffers in PSRAM");
+        lv_disp_draw_buf_init(&draw_buf, buf1, buf2, 240 * 20);
+    }
+
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res  = 240;
@@ -47,7 +58,6 @@ void lvgl_port_init(LGFX &display) {
     disp_drv.draw_buf = &draw_buf;
     lv_disp_drv_register(&disp_drv);
 
-    // Touch input driver
     static lv_indev_drv_t indev_drv;
     lv_indev_drv_init(&indev_drv);
     indev_drv.type    = LV_INDEV_TYPE_POINTER;

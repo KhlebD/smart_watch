@@ -54,7 +54,8 @@ void setup() {
     // ── LVGL ─────────────────────────────────────────────────────────────
     lvgl_port_init(display);
 
-    // ── BLE _─────────────────────────────F────────────────────────────────
+    // ── BLE _─────────────────────────────────────────────────────────────
+
     initBLE();
 
     // ── Watch face only ───────────────────────────────────────────────────
@@ -68,9 +69,6 @@ void setup() {
     screenOnTime = millis();
     Serial.println("Setup complete");
 
-    std::string addr = NimBLEDevice::getAddress().toString();
-    Serial.print("BLE MAC: ");
-    Serial.println(addr.c_str());
 }
 
 void loop() {
@@ -142,7 +140,6 @@ void loop() {
         screenOnTime = millis();
         lastDraw = 0;
     }
-
     // ── LVGL ───────────────────────────────────────────────────────────────
     lv_timer_handler();
     delay(5);
