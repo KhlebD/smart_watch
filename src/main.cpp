@@ -27,7 +27,7 @@ void show_watch_face(lv_scr_load_anim_t anim) {
 }
 
 void show_step_screen() {
-    step_screen_update(0, 10000, 0.0f);
+    step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
     step_screen_show();
 }
 
@@ -41,6 +41,10 @@ void setup() {
     resetTouch();
     pinMode(TOUCH_INT, INPUT);
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
+    // Barometer
+    baro_init();
+    // Motion
+    motion_init();
     Wire.setClock(50000);
     configureTouch();
     setupTouchInterrupt(TOUCH_INT);
@@ -68,7 +72,6 @@ void setup() {
     hr_screen_create();
     screenOnTime = millis();
     Serial.println("Setup complete");
-
 }
 
 void loop() {
@@ -112,11 +115,9 @@ void loop() {
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         unsigned long s = now / 1000;
-        watch_face_update((s / 3600) % 12, (s / 60) % 60, s % 60,
-                          75,     // fake battery %
-                          false,  // BLE not connected
-                          19, 8,  // fake date
-                          25.0f   // fake temperature
+        watch_face_update((s / 3600) % 12, (s / 60) % 60, s % 60, 75,
+                          bleConnected, 19, 8,
+                          baro_get_temperature() 
         );
     }
 
@@ -133,7 +134,7 @@ void loop() {
             delay(10);
         }
         touchEventFlag = false;
-        display.init();
+        display.setBrightness(200);
         display.setBrightness(200);
         lv_obj_invalidate(lv_scr_act());
         lv_timer_handler();
