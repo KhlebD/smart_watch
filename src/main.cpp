@@ -19,8 +19,7 @@
 #include "step_screen.h"
 #include "touch.h"
 #include "watch_face.h"
-#include "soc/soc.h"
-#include "soc/rtc_cntl_reg.h"
+#include "esp_private/brownout.h"
 
 static lv_obj_t* lbl_touch = nullptr;
 unsigned long screenOnTime = 0;
@@ -51,7 +50,7 @@ void show_hr_screen() {
 }
 
 void setup() {
-    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+    esp_brownout_disable();
     Serial.begin(115200);
     delay(100);
 
