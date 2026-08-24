@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <heartRate.h>
 #include <lvgl.h>
+#include <time.h>
 
 #include "baro.h"
 #include "battery.h"
@@ -18,6 +19,8 @@
 #include "step_screen.h"
 #include "touch.h"
 #include "watch_face.h"
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 static lv_obj_t* lbl_touch = nullptr;
 unsigned long screenOnTime = 0;
@@ -48,6 +51,7 @@ void show_hr_screen() {
 }
 
 void setup() {
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
     Serial.begin(115200);
     delay(100);
 
@@ -84,6 +88,9 @@ void setup() {
 
     // ── LVGL ─────────────────────────────────────────────────────────────
     lvgl_port_init(display);
+    // Set timezone to Israel Standard Time
+    setenv("TZ", "IST-2IDT,M3.4.4/26,M10.5.0", 1);
+    tzset();
 
     // ── BLE _─────────────────────────────────────────────────────────────
 
@@ -104,10 +111,11 @@ void setup() {
 void loop() {
     unsigned long now = millis();
 
-    // ── Touch — only read when INT pin is low ─────────────────────────────
+    // ── Touch ──────────────────────────────────────────────────────────────
     static bool wasDown = false;
+    static unsigned long lastSuccessfulRead = 0;
 
-    if (touchEventFlag || wasDown) {
+    if (touchEventFlag || (wasDown && (now - lastSuccessfulRead < 200))) {
         touchEventFlag = false;
         screenOnTime = now;
 
@@ -116,19 +124,26 @@ void loop() {
 
         Wire.beginTransmission(TOUCH_ADDR);
         Wire.write(0x01);
-        if (Wire.endTransmission(false) == 0 &&
-            Wire.requestFrom(TOUCH_ADDR, 6) == 6) {
-            Wire.read();
-            int points = Wire.read();
-            byte xHigh = Wire.read();
-            byte xLow = Wire.read();
-            byte yHigh = Wire.read();
-            byte yLow = Wire.read();
-            if (points > 0) {
-                fingerDown = true;
-                tx = ((xHigh & 0x0F) << 8) | xLow;
-                ty = ((yHigh & 0x0F) << 8) | yLow;
+        byte err = Wire.endTransmission(false);
+        if (err == 0) {
+            if (Wire.requestFrom(TOUCH_ADDR, 6) == 6) {
+                Wire.read();
+                int points = Wire.read();
+                byte xHigh = Wire.read();
+                byte xLow = Wire.read();
+                byte yHigh = Wire.read();
+                byte yLow = Wire.read();
+                if (points > 0) {
+                    fingerDown = true;
+                    tx = ((xHigh & 0x0F) << 8) | xLow;
+                    ty = ((yHigh & 0x0F) << 8) | yLow;
+                    lastSuccessfulRead = now;
+                }
             }
+        } else {
+            // I2C error — reinitialize Wire
+            Wire.begin(TOUCH_SDA, TOUCH_SCL);
+            Wire.setClock(50000);
         }
 
         lastTouchX = tx;
@@ -136,7 +151,6 @@ void loop() {
         lastTouchDown = fingerDown;
         wasDown = fingerDown;
     }
-
     // ── Heart Rate ───────────────────────────────────────────
     if (hrSensorReady && lv_scr_act() == hr_screen_get()) {
         hrIrValue = particleSensor.getIR();
@@ -162,11 +176,21 @@ void loop() {
     static unsigned long lastUpdate = 0;
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
-        unsigned long s = now / 1000;
-        watch_face_update((s / 3600) % 12, (s / 60) % 60, s % 60, 75,
-                          bleConnected, 19, 8, baro_get_temperature());
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo, 0)) {
+            // Real time from BLE sync
+            watch_face_update(timeinfo.tm_hour, timeinfo.tm_min,
+                              timeinfo.tm_sec, 75, bleConnected,
+                              timeinfo.tm_mday, timeinfo.tm_mon + 1,
+                              baro_get_temperature());
+        } else {
+            // No sync yet — count seconds from boot
+            unsigned long s = now / 1000;
+            watch_face_update(0, 0, s % 60,  // only seconds hand moves
+                              75, bleConnected, 0, 0,  // no date yet
+                              baro_get_temperature());
+        }
     }
-
     if (pendingNotification) {
         pendingNotification = false;
         notif_screen_show();
