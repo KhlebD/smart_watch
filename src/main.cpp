@@ -33,6 +33,9 @@ byte hrRateSpot = 0;
 long hrLastBeat = 0;
 int hrBeatAvg = 0;
 long hrIrValue = 0;
+static int hr_history[GRAPH_POINTS];
+static int hr_history_head = 0;
+static bool hr_history_full = false;
 
 // ── Screen functions ──────────────────────────────────────────────────────
 void show_watch_face(lv_scr_load_anim_t anim) {
@@ -45,14 +48,12 @@ void show_step_screen() {
 }
 
 void show_hr_screen() {
-    hrBeatAvg = 0;
-    hrRateSpot = 0;
-    memset(hrRates, 0, sizeof(hrRates));
+    hr_screen_load_history(hr_history, GRAPH_POINTS, hr_history_head, hr_history_full);
     hr_screen_show();
 }
 void show_temp_screen() {
-    temp_screen_update(baro_get_temperature(), baro_get_altitude(),
-                       g_hour, g_minute);
+    temp_screen_update(baro_get_temperature(), baro_get_altitude(), g_hour,
+                       g_minute);
     temp_screen_show();
 }
 
@@ -169,8 +170,8 @@ void loop() {
         screenOnTime = now;
     }
 
-    // ── Heart rate ──────────────────────────────────────────────────────────
-    if (hrSensorReady && lv_scr_act() == hr_screen_get()) {
+    // ── Heart rate — always reading ────────────────────────────────────────
+    if (hrSensorReady) {
         hrIrValue = particleSensor.getIR();
         if (checkForBeat(hrIrValue)) {
             long delta = millis() - hrLastBeat;
@@ -182,22 +183,28 @@ void loop() {
                 hrBeatAvg = 0;
                 for (byte x = 0; x < RATE_SIZE; x++) hrBeatAvg += hrRates[x];
                 hrBeatAvg /= RATE_SIZE;
+
+                // Store in ring buffer
+                hr_history[hr_history_head] = hrBeatAvg;
+                hr_history_head = (hr_history_head + 1) % GRAPH_POINTS;
+                if (hr_history_head == 0) hr_history_full = true;
             }
         }
-        static unsigned long lastHrUpdate = 0;
-        if (now - lastHrUpdate >= 1000) {
-            lastHrUpdate = now;
-            hr_screen_update(hrBeatAvg, hrIrValue);
+        if (lv_scr_act() == hr_screen_get()) {
+            static unsigned long lastHrUpdate = 0;
+            if (now - lastHrUpdate >= 1000) {
+                lastHrUpdate = now;
+                hr_screen_update(hrBeatAvg, hrIrValue);
+            }
         }
     }
-
     // ── Update watch face every second ──────────────────────────────────────
     static unsigned long lastUpdate = 0;
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         struct tm timeinfo;
         if (getLocalTime(&timeinfo, 0)) {
-            g_hour   = timeinfo.tm_hour;
+            g_hour = timeinfo.tm_hour;
             g_minute = timeinfo.tm_min;
             watch_face_update(
                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec,
@@ -208,7 +215,7 @@ void loop() {
             // No BLE sync yet — show seconds ticking, no date
             unsigned long s = now / 1000;
             watch_face_update(0, 0, s % 60, getBatteryPercent(), bleConnected,
-                              0, 0, 0, baro_get_temperature(), 0,
+                              0, 0, 0, baro_get_temperature(), hrBeatAvg,
                               motion_get_steps(), 10000);
         }
     }
@@ -221,9 +228,9 @@ void loop() {
             step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
         }
         if (lv_scr_act() == temp_screen_get()) {
-    temp_screen_update(baro_get_temperature(), baro_get_altitude(),
-                       g_hour, g_minute);
-}
+            temp_screen_update(baro_get_temperature(), baro_get_altitude(),
+                               g_hour, g_minute);
+        }
     }
 
     // ── Display timeout ─────────────────────────────────────────────────────
@@ -244,7 +251,6 @@ void loop() {
         screenOnTime = millis();
         lastDraw = 0;
     }
-
     // ── LVGL ───────────────────────────────────────────────────────────────
     lv_timer_handler();
     delay(5);

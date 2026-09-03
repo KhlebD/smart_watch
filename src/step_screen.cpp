@@ -85,13 +85,6 @@ void step_screen_create() {
     lv_obj_set_style_text_font(lbl_percent, &lv_font_montserrat_14, 0);
     lv_obj_align(lbl_percent, LV_ALIGN_CENTER, 0, 58);
 
-    // Swipe hint
-    lv_obj_t* hint = lv_label_create(scr_steps);
-    lv_label_set_text(hint, LV_SYMBOL_DOWN " swipe down");
-    lv_obj_set_style_text_color(hint, lv_color_make(0x33, 0x33, 0x33), 0);
-    lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
-    lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -10);
-
     // Altitude label
     lbl_altitude = lv_label_create(scr_steps);
     lv_obj_set_style_text_color(lbl_altitude, lv_color_make(0x88, 0x88, 0x88),
