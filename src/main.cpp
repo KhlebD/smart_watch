@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <MAX30105.h>
-#include <RTClib.h>
 #include <Wire.h>
 #include <heartRate.h>
 #include <lvgl.h>
@@ -10,6 +9,7 @@
 #include "battery.h"
 #include "ble_comm.h"
 #include "config.h"
+#include "esp_private/brownout.h"
 #include "globals.h"
 #include "hr_screen.h"
 #include "lvgl_port.h"
@@ -17,15 +17,16 @@
 #include "motion.h"
 #include "notif_screen.h"
 #include "step_screen.h"
+#include "temp_screen.h"
 #include "touch.h"
 #include "watch_face.h"
-#include "esp_private/brownout.h"
 
-static lv_obj_t* lbl_touch = nullptr;
 unsigned long screenOnTime = 0;
 
+// ── HR vars ───────────────────────────────────────────────────────────────
 MAX30105 particleSensor;
 bool hrSensorReady = false;
+
 const byte RATE_SIZE = 4;
 byte hrRates[RATE_SIZE];
 byte hrRateSpot = 0;
@@ -33,6 +34,7 @@ long hrLastBeat = 0;
 int hrBeatAvg = 0;
 long hrIrValue = 0;
 
+// ── Screen functions ──────────────────────────────────────────────────────
 void show_watch_face(lv_scr_load_anim_t anim) {
     lv_scr_load_anim(scr_watch, anim, 200, 0, false);
 }
@@ -48,22 +50,39 @@ void show_hr_screen() {
     memset(hrRates, 0, sizeof(hrRates));
     hr_screen_show();
 }
+void show_temp_screen() {
+    temp_screen_update(baro_get_temperature(), baro_get_altitude(),
+                       g_hour, g_minute);
+    temp_screen_show();
+}
 
+// ── Setup ─────────────────────────────────────────────────────────────────
 void setup() {
     esp_brownout_disable();
+
     Serial.begin(115200);
     delay(100);
 
-    // ── Touch + I2C ───────────────────────────────────────────────────────
+    // ── Timezone ───────────────────────────────────────────────────────────
+    setenv("TZ", "IST-2IDT,M3.4.4/26,M10.5.0", 1);
+    tzset();
+
+    // ── Touch + I2C bus 1 ─────────────────────────────────────────────────
     resetTouch();
     pinMode(TOUCH_INT, INPUT);
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
-    // Barometer
+    Wire.setClock(50000);
+    configureTouch();
+    setupTouchInterrupt(TOUCH_INT);
+
+    // ── Barometric sensor (BMP280) ────────────────────────────────────────
     baro_init();
-    // Motion
+
+    // ── Motion sensor (BMI160) ────────────────────────────────────────────
     motion_init();
-    // Heart Rate
-    Wire1.begin(13, 14);
+
+    // ── Heart rate (MAX30102) on Wire1 ────────────────────────────────────
+    Wire1.begin(HR_SDA, HR_SCL);
     Wire1.setClock(400000);
     if (!particleSensor.begin(Wire1, I2C_SPEED_FAST)) {
         Serial.println("MAX30102 not found");
@@ -75,38 +94,31 @@ void setup() {
         Serial.println("MAX30102 ok");
     }
 
-    Wire.setClock(50000);
-    configureTouch();
-    setupTouchInterrupt(TOUCH_INT);
-
-    // ── Display ───────────────────────────────────────────────────────────
+    // ── Display ────────────────────────────────────────────────────────────
     display.init();
     display.setRotation(0);
     display.invertDisplay(true);
     display.setBrightness(200);
 
-    // ── LVGL ─────────────────────────────────────────────────────────────
+    // ── LVGL ──────────────────────────────────────────────────────────────
     lvgl_port_init(display);
-    // Set timezone to Israel Standard Time
-    setenv("TZ", "IST-2IDT,M3.4.4/26,M10.5.0", 1);
-    tzset();
 
-    // ── BLE _─────────────────────────────────────────────────────────────
-
+    // ── BLE ────────────────────────────────────────────────────────────────
     initBLE();
 
-    // ── Watch face only ───────────────────────────────────────────────────
+    // ── Screens ────────────────────────────────────────────────────────────
     scr_watch = lv_scr_act();
     watch_face_create(scr_watch);
-
-    // REST OF SCREENS
     notif_screen_create();
     step_screen_create();
     hr_screen_create();
+    temp_screen_create();
+
     screenOnTime = millis();
     Serial.println("Setup complete");
 }
 
+// ── Loop ──────────────────────────────────────────────────────────────────
 void loop() {
     unsigned long now = millis();
 
@@ -140,7 +152,6 @@ void loop() {
                 }
             }
         } else {
-            // I2C error — reinitialize Wire
             Wire.begin(TOUCH_SDA, TOUCH_SCL);
             Wire.setClock(50000);
         }
@@ -150,7 +161,15 @@ void loop() {
         lastTouchDown = fingerDown;
         wasDown = fingerDown;
     }
-    // ── Heart Rate ───────────────────────────────────────────
+
+    // ── Pending notification ────────────────────────────────────────────────
+    if (pendingNotification) {
+        pendingNotification = false;
+        notif_screen_show();
+        screenOnTime = now;
+    }
+
+    // ── Heart rate ──────────────────────────────────────────────────────────
     if (hrSensorReady && lv_scr_act() == hr_screen_get()) {
         hrIrValue = particleSensor.getIR();
         if (checkForBeat(hrIrValue)) {
@@ -171,45 +190,61 @@ void loop() {
             hr_screen_update(hrBeatAvg, hrIrValue);
         }
     }
-    // ── Update watch face every second with fake time ───────────────────────
+
+    // ── Update watch face every second ──────────────────────────────────────
     static unsigned long lastUpdate = 0;
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
         struct tm timeinfo;
         if (getLocalTime(&timeinfo, 0)) {
-            // Real time from BLE sync
-            watch_face_update(timeinfo.tm_hour, timeinfo.tm_min,
-                              timeinfo.tm_sec, 75, bleConnected,
-                              timeinfo.tm_mday, timeinfo.tm_mon + 1,
-                              baro_get_temperature());
+            g_hour   = timeinfo.tm_hour;
+            g_minute = timeinfo.tm_min;
+            watch_face_update(
+                timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec,
+                getBatteryPercent(), bleConnected, timeinfo.tm_mday,
+                timeinfo.tm_mon + 1, timeinfo.tm_wday, baro_get_temperature(),
+                hrBeatAvg, motion_get_steps(), 10000);
         } else {
-            // No sync yet — count seconds from boot
+            // No BLE sync yet — show seconds ticking, no date
             unsigned long s = now / 1000;
-            watch_face_update(0, 0, s % 60,  // only seconds hand moves
-                              75, bleConnected, 0, 0,  // no date yet
-                              baro_get_temperature());
+            watch_face_update(0, 0, s % 60, getBatteryPercent(), bleConnected,
+                              0, 0, 0, baro_get_temperature(), 0,
+                              motion_get_steps(), 10000);
         }
     }
-    if (pendingNotification) {
-        pendingNotification = false;
-        notif_screen_show();
-        screenOnTime = now;
+
+    // ── Update step screen every 5 seconds ─────────────────────────────────
+    static unsigned long lastStepUpdate = 0;
+    if (now - lastStepUpdate >= 5000) {
+        lastStepUpdate = now;
+        if (lv_scr_act() == step_screen_get()) {
+            step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
+        }
+        if (lv_scr_act() == temp_screen_get()) {
+    temp_screen_update(baro_get_temperature(), baro_get_altitude(),
+                       g_hour, g_minute);
+}
     }
+
     // ── Display timeout ─────────────────────────────────────────────────────
     if (now - screenOnTime > DISPLAY_TIMEOUT_MS) {
         display.setBrightness(0);
-        while (!touchEventFlag) {
+        motion_sleep_start();
+
+        while (!touchEventFlag && !motion_get_flag()) {
             lv_timer_handler();
             delay(10);
         }
+
+        motion_sleep_end();
         touchEventFlag = false;
-        display.setBrightness(200);
         display.setBrightness(200);
         lv_obj_invalidate(lv_scr_act());
         lv_timer_handler();
         screenOnTime = millis();
         lastDraw = 0;
     }
+
     // ── LVGL ───────────────────────────────────────────────────────────────
     lv_timer_handler();
     delay(5);

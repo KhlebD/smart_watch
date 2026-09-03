@@ -56,7 +56,21 @@ static void dismiss_cb(lv_event_t *e) {
                          LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200, 0, false);
     }
 }
+static void list_gesture_cb(lv_event_t *e) {
+    lv_indev_t* indev = lv_indev_get_act();
+    if (!indev) return;
+    if (lv_indev_get_gesture_dir(indev) == LV_DIR_TOP) {
+        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_TOP);
+    }
+}
 
+static void expanded_gesture_cb(lv_event_t *e) {
+    lv_indev_t* indev = lv_indev_get_act();
+    if (!indev) return;
+    if (lv_indev_get_gesture_dir(indev) == LV_DIR_TOP) {
+        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_TOP);
+    }
+}
 // ── Build list ────────────────────────────────────────────────────────────
 static void build_list() {
     lv_obj_clean(list_cont);
@@ -140,6 +154,7 @@ void notif_screen_create() {
 
     // ── List screen ──────────────────────────────────────────────────────
     scr_list = lv_obj_create(nullptr);
+    lv_obj_add_event_cb(scr_list, list_gesture_cb, LV_EVENT_GESTURE, nullptr);
     lv_obj_set_style_bg_color(scr_list, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(scr_list, LV_OPA_COVER, 0);
     lv_obj_clear_flag(scr_list, LV_OBJ_FLAG_SCROLLABLE);
@@ -169,6 +184,7 @@ void notif_screen_create() {
 
     // ── Expanded screen ──────────────────────────────────────────────────
     scr_expanded = lv_obj_create(nullptr);
+    lv_obj_add_event_cb(scr_expanded, expanded_gesture_cb, LV_EVENT_GESTURE, nullptr);
     lv_obj_set_style_bg_color(scr_expanded, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(scr_expanded, LV_OPA_COVER, 0);
     lv_obj_clear_flag(scr_expanded, LV_OBJ_FLAG_SCROLLABLE);
@@ -244,5 +260,5 @@ void notif_screen_refresh() {
 void notif_screen_show() {
     build_list();
     lv_scr_load_anim(scr_list,
-                     LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
+                     LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 200, 0, false);
 }

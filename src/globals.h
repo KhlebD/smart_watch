@@ -46,6 +46,9 @@ extern String bleBuffer;
 
 extern volatile bool touchEventFlag;
 
+// Time 
+extern int g_hour;
+extern int g_minute;
 // LVGL Additions
 extern int  lastTouchX;
 extern int  lastTouchY;

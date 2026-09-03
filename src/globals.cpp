@@ -61,3 +61,6 @@ bool lastTouchDown = false;
 
 lv_obj_t *scr_watch = nullptr;
 volatile bool pendingNotification = false;
+
+int g_hour   = 0;
+int g_minute = 0;

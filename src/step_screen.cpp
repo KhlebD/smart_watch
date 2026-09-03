@@ -17,8 +17,8 @@ static lv_obj_t* lbl_altitude = nullptr;
 
 static void swipe_cb(lv_event_t* e) {
     lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-    if (dir == LV_DIR_BOTTOM) {
-        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_BOTTOM);
+    if (dir == LV_DIR_RIGHT) {
+        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_RIGHT);
     }
 }
 lv_obj_t* step_screen_get() { return scr_steps; }
@@ -139,5 +139,5 @@ void step_screen_update(int steps, int goal, float altitude)  {
 }
 
 void step_screen_show() {
-    lv_scr_load_anim(scr_steps, LV_SCR_LOAD_ANIM_MOVE_TOP, 200, 0, false);
+    lv_scr_load_anim(scr_steps, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
 }

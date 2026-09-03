@@ -14,8 +14,8 @@ static lv_chart_series_t *ser = nullptr;
 
 static void swipe_cb(lv_event_t *e) {
     lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-    if (dir == LV_DIR_TOP) {
-        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_TOP);
+    if (dir == LV_DIR_LEFT) {
+        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_LEFT);
     }
 }
 
@@ -119,7 +119,7 @@ void hr_screen_update(int bpm, long irValue) {
 }
 
 void hr_screen_show() {
-    lv_scr_load_anim(scr_hr, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 200, 0, false);
+    lv_scr_load_anim(scr_hr, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200, 0, false);
 }
 
 lv_obj_t* hr_screen_get() {

@@ -1,229 +1,217 @@
 #include "watch_face.h"
-
-#include <math.h>
-#include <stdio.h>
-
+#include "globals.h"
 #include "main_funcs.h"
+#include "notif_screen.h"
+#include "temp_screen.h"
+#include "main_funcs.h"
+#include <Arduino.h>
 
-#define CX 120
-#define CY 120
-
-// ── Persistent point arrays ───────────────────────────────────────────────
-static lv_point_t pts_hour[2];
-static lv_point_t pts_minute[2];
-static lv_point_t pts_second[2];
-static lv_point_t pts_tail[2];
-static lv_point_t tick_pts[12][2];
-
-// ── Styles ────────────────────────────────────────────────────────────────
-static lv_style_t sty_hour;
-static lv_style_t sty_minute;
-static lv_style_t sty_second;
-static lv_style_t sty_major_tick;
-static lv_style_t sty_minor_tick;
+// ── Colors ────────────────────────────────────────────────────────────────
+#define C_BG        lv_color_hex(0x080c14)
+#define C_BPM       lv_color_hex(0xff4010)
+#define C_STEPS     lv_color_hex(0x39ff14)
+#define C_TEMP      lv_color_hex(0x00e5ff)
+#define C_BLE_ON    lv_color_hex(0x00e5ff)
+#define C_BLE_OFF   lv_color_hex(0x444444)
+#define C_MUTED     lv_color_hex(0x2a3a4a)
+#define C_DIM       lv_color_hex(0x666666)
+#define C_WHITE     lv_color_hex(0xffffff)
 
 // ── Widget handles ────────────────────────────────────────────────────────
-static lv_obj_t* hand_hour;
-static lv_obj_t* hand_minute;
-static lv_obj_t* hand_second;
-static lv_obj_t* hand_tail;
-static lv_obj_t* lbl_date;
-static lv_obj_t* lbl_battery;
-static lv_obj_t* lbl_ble;
-static lv_obj_t* lbl_temp;
+static lv_obj_t *arc_bpm        = nullptr;
+static lv_obj_t *arc_steps      = nullptr;
+static lv_obj_t *arc_temp       = nullptr;
 
-// ── Math helper ───────────────────────────────────────────────────────────
-static void calc_point(float angle_deg, int length, lv_point_t* out) {
-    float rad = (angle_deg - 90.0f) * (float)M_PI / 180.0f;
-    out->x = (lv_coord_t)(CX + roundf(length * cosf(rad)));
-    out->y = (lv_coord_t)(CY + roundf(length * sinf(rad)));
+static lv_obj_t *lbl_time       = nullptr;
+static lv_obj_t *lbl_weekday    = nullptr;
+static lv_obj_t *lbl_date       = nullptr;
+static lv_obj_t *lbl_battery    = nullptr;
+static lv_obj_t *lbl_ble        = nullptr;
+
+static lv_obj_t *lbl_bpm_title  = nullptr;
+static lv_obj_t *lbl_bpm_val    = nullptr;
+static lv_obj_t *lbl_steps_title = nullptr;
+static lv_obj_t *lbl_steps_val  = nullptr;
+static lv_obj_t *lbl_temp_title  = nullptr;
+static lv_obj_t *lbl_temp_val   = nullptr;
+
+// ── Arc factory ───────────────────────────────────────────────────────────
+static lv_obj_t* make_arc(lv_obj_t* parent, int size, int width,
+                           lv_color_t color, int bg_start, int bg_end) {
+    lv_obj_t* arc = lv_arc_create(parent);
+    lv_obj_set_size(arc, size, size);
+    lv_obj_align(arc, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
+    lv_arc_set_mode(arc, LV_ARC_MODE_NORMAL);
+    lv_arc_set_bg_angles(arc, bg_start, bg_end);
+    lv_arc_set_angles(arc, bg_start, bg_start); // empty fill
+
+    // Transparent body
+    lv_obj_set_style_bg_opa(arc, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(arc, 0, LV_PART_MAIN);
+
+    // Dim track
+    lv_obj_set_style_arc_color(arc, color, LV_PART_MAIN);
+    lv_obj_set_style_arc_opa(arc, LV_OPA_20, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc, width, LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(arc, true, LV_PART_MAIN);
+
+    // Bright indicator
+    lv_obj_set_style_arc_color(arc, color, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_opa(arc, LV_OPA_COVER, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(arc, width, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_rounded(arc, true, LV_PART_INDICATOR);
+
+    // Hide knob
+    lv_obj_set_style_bg_opa(arc, LV_OPA_TRANSP, LV_PART_KNOB);
+    lv_obj_set_style_border_width(arc, 0, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(arc, 0, LV_PART_KNOB);
+
+    return arc;
+}
+
+// ── Label factory ─────────────────────────────────────────────────────────
+static lv_obj_t* make_label(lv_obj_t* parent, const char* text,
+                              const lv_font_t* font, lv_color_t color) {
+    lv_obj_t* lbl = lv_label_create(parent);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_style_text_font(lbl, font, 0);
+    lv_obj_set_style_text_color(lbl, color, 0);
+    lv_obj_set_style_bg_opa(lbl, LV_OPA_TRANSP, 0);
+    return lbl;
+}
+
+// ── Gesture handler ───────────────────────────────────────────────────────
+static void gesture_cb(lv_event_t* e) {
+    lv_indev_t* indev = lv_indev_get_act();
+    if (!indev) return;
+    lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+    switch (dir) {
+        case LV_DIR_LEFT:  show_step_screen();  break; // steps on right
+        case LV_DIR_RIGHT: show_hr_screen();    break; // BPM on left
+        case LV_DIR_TOP:    show_temp_screen();  break; // temp on bottom
+        case LV_DIR_BOTTOM:  notif_screen_show(); break; // notifications
+        default: break;
+    }
 }
 
 // ── Create ────────────────────────────────────────────────────────────────
-void watch_face_create(lv_obj_t* scr) {
-    lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+void watch_face_create(lv_obj_t* screen) {
+    lv_obj_set_style_bg_color(screen, C_BG, 0);
+    lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
+    lv_obj_add_event_cb(screen, gesture_cb, LV_EVENT_GESTURE, NULL);
 
-    // Tick styles
-    lv_style_init(&sty_major_tick);
-    lv_style_set_line_color(&sty_major_tick, lv_color_white());
-    lv_style_set_line_width(&sty_major_tick, 3);
-    lv_style_set_line_rounded(&sty_major_tick, true);
+    // ── Arcs ──────────────────────────────────────────────────────────────
+    // BPM: 9 o'clock (180°) CW to 3 o'clock (360°) — top half
+    arc_bpm   = make_arc(screen, 238, 5, C_BPM,   180, 360);
+    // Steps: 3 o'clock (0°) CW to 9 o'clock (180°) — bottom half
+    arc_steps = make_arc(screen, 238, 5, C_STEPS,   0, 180);
+    // Temp: small inner arc centered at 6 o'clock (90°) ±30°
+    arc_temp  = make_arc(screen, 215, 2, C_TEMP,   60, 120);
 
-    lv_style_init(&sty_minor_tick);
-    lv_style_set_line_color(&sty_minor_tick, lv_color_white());
-    lv_style_set_line_width(&sty_minor_tick, 1);
-    lv_style_set_line_rounded(&sty_minor_tick, true);
+    // ── Time (center) ─────────────────────────────────────────────────────
+    lbl_time = make_label(screen, "00:00", &lv_font_montserrat_28, C_WHITE);
+    lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -8);
 
-    // Draw 12 tick marks — create first so hands render on top
-    for (int i = 0; i < 12; i++) {
-        float angle = i * 30.0f;
-        bool major = (i % 3 == 0);
-        int outer_r = 108;
-        int inner_r = major ? 90 : 100;
+    // ── Weekday (below time) ──────────────────────────────────────────────
+    lbl_weekday = make_label(screen, "MONDAY", &lv_font_montserrat_10, C_MUTED);
+    lv_obj_align(lbl_weekday, LV_ALIGN_CENTER, 0, 18);
 
-        calc_point(angle, outer_r, &tick_pts[i][0]);
-        calc_point(angle, inner_r, &tick_pts[i][1]);
+    // ── Date (top center) ─────────────────────────────────────────────────
+    lbl_date = make_label(screen, "1 JAN", &lv_font_montserrat_14, C_WHITE);
+    lv_obj_align(lbl_date, LV_ALIGN_TOP_MID, 0, 30);
 
-        lv_obj_t* tick = lv_line_create(scr);
-        lv_obj_add_style(tick, major ? &sty_major_tick : &sty_minor_tick, 0);
-        lv_line_set_points(tick, tick_pts[i], 2);
-    }
+    // ── Battery (below date, left) ────────────────────────────────────────
+    lbl_battery = make_label(screen, "100%", &lv_font_montserrat_10, C_DIM);
+    lv_obj_align(lbl_battery, LV_ALIGN_TOP_MID, -20, 48);
 
-    // Hand styles
-    lv_style_init(&sty_hour);
-    lv_style_set_line_color(&sty_hour, lv_color_white());
-    lv_style_set_line_width(&sty_hour, 5);
-    lv_style_set_line_rounded(&sty_hour, true);
+    // ── BLE symbol (below date, right) ───────────────────────────────────
+    lbl_ble = make_label(screen, LV_SYMBOL_BLUETOOTH, &lv_font_montserrat_10, C_BLE_OFF);
+    lv_obj_align(lbl_ble, LV_ALIGN_TOP_MID, 20, 48);
 
-    lv_style_init(&sty_minute);
-    lv_style_set_line_color(&sty_minute, lv_color_white());
-    lv_style_set_line_width(&sty_minute, 3);
-    lv_style_set_line_rounded(&sty_minute, true);
+    // ── BPM (left side) ───────────────────────────────────────────────────
+    lbl_bpm_title = make_label(screen, "BPM", &lv_font_montserrat_10, C_BPM);
+    lv_obj_align(lbl_bpm_title, LV_ALIGN_LEFT_MID, 6, -10);
+    lbl_bpm_val = make_label(screen, "--", &lv_font_montserrat_16, C_WHITE);
+    lv_obj_align(lbl_bpm_val, LV_ALIGN_LEFT_MID, 6, 6);
 
-    lv_style_init(&sty_second);
-    lv_style_set_line_color(&sty_second, lv_color_make(0xE2, 0x4B, 0x4A));
-    lv_style_set_line_width(&sty_second, 1);
-    lv_style_set_line_rounded(&sty_second, true);
+    // ── Steps (right side) ────────────────────────────────────────────────
+    lbl_steps_title = make_label(screen, "STEPS", &lv_font_montserrat_10, C_STEPS);
+    lv_obj_set_style_text_align(lbl_steps_title, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_align(lbl_steps_title, LV_ALIGN_RIGHT_MID, -6, -10);
+    lbl_steps_val = make_label(screen, "--", &lv_font_montserrat_16, C_WHITE);
+    lv_obj_set_style_text_align(lbl_steps_val, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_align(lbl_steps_val, LV_ALIGN_RIGHT_MID, -6, 6);
 
-    // Hour hand
-    pts_hour[0] = {CX, CY};
-    pts_hour[1] = {CX, CY - 55};
-    hand_hour = lv_line_create(scr);
-    lv_obj_add_style(hand_hour, &sty_hour, 0);
-    lv_line_set_points(hand_hour, pts_hour, 2);
-
-    // Minute hand
-    pts_minute[0] = {CX, CY};
-    pts_minute[1] = {CX, CY - 75};
-    hand_minute = lv_line_create(scr);
-    lv_obj_add_style(hand_minute, &sty_minute, 0);
-    lv_line_set_points(hand_minute, pts_minute, 2);
-
-    // Second hand
-    pts_second[0] = {CX, CY};
-    pts_second[1] = {CX, CY - 85};
-    hand_second = lv_line_create(scr);
-    lv_obj_add_style(hand_second, &sty_second, 0);
-    lv_line_set_points(hand_second, pts_second, 2);
-
-    // Second tail (counterbalance)
-    pts_tail[0] = {CX, CY};
-    pts_tail[1] = {CX, CY + 20};
-    hand_tail = lv_line_create(scr);
-    lv_obj_add_style(hand_tail, &sty_second, 0);
-    lv_line_set_points(hand_tail, pts_tail, 2);
-
-    // Center dot — white outer
-    lv_obj_t* dot_white = lv_obj_create(scr);
-    lv_obj_set_size(dot_white, 10, 10);
-    lv_obj_set_style_radius(dot_white, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(dot_white, lv_color_white(), 0);
-    lv_obj_set_style_bg_opa(dot_white, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(dot_white, 0, 0);
-    lv_obj_set_style_pad_all(dot_white, 0, 0);
-    lv_obj_align(dot_white, LV_ALIGN_CENTER, 0, 0);
-
-    // Center dot — red inner
-    lv_obj_t* dot_red = lv_obj_create(scr);
-    lv_obj_set_size(dot_red, 5, 5);
-    lv_obj_set_style_radius(dot_red, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(dot_red, lv_color_make(0xE2, 0x4B, 0x4A), 0);
-    lv_obj_set_style_bg_opa(dot_red, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(dot_red, 0, 0);
-    lv_obj_set_style_pad_all(dot_red, 0, 0);
-    lv_obj_align(dot_red, LV_ALIGN_CENTER, 0, 0);
-
-    // BLE icon
-    lbl_ble = lv_label_create(scr);
-    lv_obj_set_style_text_color(lbl_ble, lv_color_make(0x44, 0x88, 0xFF), 0);
-    lv_obj_set_style_text_font(lbl_ble, &lv_font_montserrat_14, 0);
-    lv_label_set_text(lbl_ble, LV_SYMBOL_BLUETOOTH);
-    lv_obj_align(lbl_ble, LV_ALIGN_TOP_MID, -18, 36);
-
-    // Battery label
-    lbl_battery = lv_label_create(scr);
-    lv_obj_set_style_text_color(lbl_battery, lv_color_make(0x88, 0x88, 0x88),
-                                0);
-    lv_obj_set_style_text_font(lbl_battery, &lv_font_montserrat_14, 0);
-    lv_label_set_text(lbl_battery, "");
-    lv_obj_align_to(lbl_battery, lbl_ble, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
-
-    // Date label
-    lbl_date = lv_label_create(scr);
-    lv_obj_set_style_text_color(lbl_date, lv_color_make(0x88, 0x88, 0x88), 0);
-    lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_14, 0);
-    lv_label_set_text(lbl_date, "");
-    lv_obj_align(lbl_date, LV_ALIGN_BOTTOM_MID, 0, -42);
-
-    // Temperature label
-    lbl_temp = lv_label_create(scr);
-    lv_obj_set_style_text_color(lbl_temp, lv_color_make(0x88, 0x88, 0x88), 0);
-    lv_obj_set_style_text_font(lbl_temp, &lv_font_montserrat_14, 0);
-    lv_label_set_text(lbl_temp, "");
-    lv_obj_align(lbl_temp, LV_ALIGN_TOP_MID, 32, 36);
-
-    // Swipe up → step screen, swipe down → heart rate screen
-    lv_obj_add_event_cb(
-        scr,
-        [](lv_event_t* e) {
-            lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-            if (dir == LV_DIR_TOP) {
-                extern void show_step_screen();
-                show_step_screen();
-            } else if (dir == LV_DIR_BOTTOM) {
-                extern void show_hr_screen();
-                show_hr_screen();
-            }
-        },
-        LV_EVENT_GESTURE, nullptr);
+    // ── Temp (bottom) ─────────────────────────────────────────────────────
+    lbl_temp_title = make_label(screen, "TEMP", &lv_font_montserrat_10, C_TEMP);
+    lv_obj_align(lbl_temp_title, LV_ALIGN_BOTTOM_MID, 0, -44);
+    lbl_temp_val = make_label(screen, "--°", &lv_font_montserrat_16, C_WHITE);
+    lv_obj_align(lbl_temp_val, LV_ALIGN_BOTTOM_MID, 0, -26);
 }
 
 // ── Update ────────────────────────────────────────────────────────────────
-void watch_face_update(int hours, int minutes, int seconds, int battery,
-                       bool ble_connected, int day, int month,
-                       float temperature) {
-    // Angles
-    float hour_angle = (hours % 12) * 30.0f + minutes * 0.5f;
-    float minute_angle = minutes * 6.0f + seconds * 0.1f;
-    float second_angle = seconds * 6.0f;
+void watch_face_update(int hour, int min, int sec,
+                        int battery_pct, bool ble_connected,
+                        int day, int month, int weekday,
+                        float temp, int bpm,
+                        int steps, int step_goal) {
 
-    // Hour hand
-    calc_point(hour_angle, 55, &pts_hour[1]);
-    lv_line_set_points(hand_hour, pts_hour, 2);
+    static const char* WD[]  = {"SUN","MON","TUE","WED","THU","FRI","SAT"};
+    static const char* MON[] = {"JAN","FEB","MAR","APR","MAY","JUN",
+                                 "JUL","AUG","SEP","OCT","NOV","DEC"};
+    char buf[32];
 
-    // Minute hand
-    calc_point(minute_angle, 75, &pts_minute[1]);
-    lv_line_set_points(hand_minute, pts_minute, 2);
+    // Time
+    snprintf(buf, sizeof(buf), "%02d:%02d", hour, min);
+    lv_label_set_text(lbl_time, buf);
 
-    // Second hand + tail
-    calc_point(second_angle, 85, &pts_second[1]);
-    lv_line_set_points(hand_second, pts_second, 2);
-    calc_point(second_angle + 180.0f, 20, &pts_tail[1]);
-    lv_line_set_points(hand_tail, pts_tail, 2);
+    // Weekday
+    if (weekday >= 0 && weekday <= 6)
+        lv_label_set_text(lbl_weekday, WD[weekday]);
+
+    // Date
+    if (day > 0 && month >= 1 && month <= 12) {
+        snprintf(buf, sizeof(buf), "%d %s", day, MON[month - 1]);
+        lv_label_set_text(lbl_date, buf);
+    }
 
     // Battery
-    char bat_buf[8];
-    snprintf(bat_buf, sizeof(bat_buf), "%d%%", battery);
-    lv_label_set_text(lbl_battery, bat_buf);
-    lv_obj_set_style_text_color(lbl_battery,
-                                battery > 20 ? lv_color_make(0x88, 0x88, 0x88)
-                                             : lv_color_make(0xE2, 0x4B, 0x4A),
-                                0);
+    snprintf(buf, sizeof(buf), "%d%%", battery_pct);
+    lv_label_set_text(lbl_battery, buf);
 
     // BLE
     lv_obj_set_style_text_color(lbl_ble,
-                                ble_connected ? lv_color_make(0x44, 0x88, 0xFF)
-                                              : lv_color_make(0x44, 0x44, 0x44),
-                                0);
+        ble_connected ? C_BLE_ON : C_BLE_OFF, 0);
 
-    // Date
-    char date_buf[8];
-    snprintf(date_buf, sizeof(date_buf), "%02d/%02d", day, month);
-    lv_label_set_text(lbl_date, date_buf);
+    // BPM arc — fills top half based on bpm/200
+    {
+        int fill = (bpm > 0) ? (int)((bpm / 200.0f) * 180.0f) : 0;
+        fill = constrain(fill, 0, 180);
+        lv_arc_set_angles(arc_bpm, 180, 180 + fill);
+        if (bpm > 0) snprintf(buf, sizeof(buf), "%d", bpm);
+        else         snprintf(buf, sizeof(buf), "--");
+        lv_label_set_text(lbl_bpm_val, buf);
+    }
 
-    // Temperature
-    char tempBuf[10];
-    snprintf(tempBuf, sizeof(tempBuf), "%.1f°", temperature);
-    lv_label_set_text(lbl_temp, tempBuf);
+    // Steps arc — fills bottom half based on steps/goal
+    {
+        int fill = (step_goal > 0)
+            ? (int)((steps / (float)step_goal) * 180.0f)
+            : 0;
+        fill = constrain(fill, 0, 180);
+        lv_arc_set_angles(arc_steps, 0, fill);
+        snprintf(buf, sizeof(buf), "%d", steps);
+        lv_label_set_text(lbl_steps_val, buf);
+    }
+
+    // Temp arc — spreads from center (90°) based on temp 0-40°C
+    {
+        float clamped = constrain(temp, 0.0f, 40.0f);
+        int spread = (int)((clamped / 40.0f) * 30.0f);
+        spread = max(spread, 1); // always show at least a dot
+        lv_arc_set_angles(arc_temp, 90 - spread, 90 + spread);
+        snprintf(buf, sizeof(buf), "%.0f\xc2\xb0", temp); // UTF-8 degree symbol
+        lv_label_set_text(lbl_temp_val, buf);
+    }
 }
