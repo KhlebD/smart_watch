@@ -56,21 +56,23 @@ static void dismiss_cb(lv_event_t *e) {
                          LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200, 0, false);
     }
 }
+
 static void list_gesture_cb(lv_event_t *e) {
     lv_indev_t* indev = lv_indev_get_act();
     if (!indev) return;
-    if (lv_indev_get_gesture_dir(indev) == LV_DIR_TOP) {
-        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_TOP);
-    }
+    lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+    if (dir == LV_DIR_BOTTOM) show_music_screen(LV_SCR_LOAD_ANIM_MOVE_BOTTOM);
+    if (dir == LV_DIR_TOP)   show_watch_face(LV_SCR_LOAD_ANIM_MOVE_TOP);
 }
 
 static void expanded_gesture_cb(lv_event_t *e) {
     lv_indev_t* indev = lv_indev_get_act();
     if (!indev) return;
-    if (lv_indev_get_gesture_dir(indev) == LV_DIR_TOP) {
-        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_TOP);
-    }
+    lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+    if (dir == LV_DIR_BOTTOM) show_music_screen(LV_SCR_LOAD_ANIM_MOVE_BOTTOM);
+    if (dir == LV_DIR_TOP)   show_watch_face(LV_SCR_LOAD_ANIM_MOVE_TOP);
 }
+
 // ── Build list ────────────────────────────────────────────────────────────
 static void build_list() {
     lv_obj_clean(list_cont);
@@ -256,9 +258,7 @@ void notif_screen_create() {
 void notif_screen_refresh() {
     build_list();
 }
-
-void notif_screen_show() {
+void notif_screen_show(lv_scr_load_anim_t anim) {
     build_list();
-    lv_scr_load_anim(scr_list,
-                     LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 200, 0, false);
+    lv_scr_load_anim(scr_list, anim, 200, 0, false);
 }

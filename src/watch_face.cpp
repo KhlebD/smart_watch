@@ -87,19 +87,23 @@ static void gesture_cb(lv_event_t* e) {
     if (!indev) return;
     lv_dir_t dir = lv_indev_get_gesture_dir(indev);
     switch (dir) {
-        case LV_DIR_LEFT:  show_step_screen();  break; // steps on right
-        case LV_DIR_RIGHT: show_hr_screen();    break; // BPM on left
-        case LV_DIR_TOP:    show_temp_screen();  break; // temp on bottom
-        case LV_DIR_BOTTOM:  notif_screen_show(); break; // notifications
+        case LV_DIR_BOTTOM:  notif_screen_show(LV_SCR_LOAD_ANIM_MOVE_BOTTOM); break;
+        case LV_DIR_TOP:    show_temp_screen(LV_SCR_LOAD_ANIM_MOVE_TOP);     break;
+        case LV_DIR_RIGHT: show_hr_screen(LV_SCR_LOAD_ANIM_MOVE_RIGHT);     break;
+        case LV_DIR_LEFT:  show_step_screen(LV_SCR_LOAD_ANIM_MOVE_LEFT);    break;
         default: break;
     }
 }
-
+// ── Long Press for Music ──────────────────────────────────────────────────
+static void long_press_cb(lv_event_t* e) {
+    show_music_screen();
+}
 // ── Create ────────────────────────────────────────────────────────────────
 void watch_face_create(lv_obj_t* screen) {
     lv_obj_set_style_bg_color(screen, C_BG, 0);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
     lv_obj_add_event_cb(screen, gesture_cb, LV_EVENT_GESTURE, NULL);
+    lv_obj_add_event_cb(screen, long_press_cb, LV_EVENT_LONG_PRESSED, NULL);
 
     // ── Arcs ──────────────────────────────────────────────────────────────
     // BPM: 9 o'clock (180°) CW to 3 o'clock (360°) — top half
@@ -214,4 +218,5 @@ void watch_face_update(int hour, int min, int sec,
         snprintf(buf, sizeof(buf), "%.0f\xc2\xb0", temp); // UTF-8 degree symbol
         lv_label_set_text(lbl_temp_val, buf);
     }
+
 }

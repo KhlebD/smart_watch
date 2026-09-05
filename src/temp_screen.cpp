@@ -36,9 +36,9 @@ static lv_color_t get_sky_color(int hour, int minute) {
 static void gesture_cb(lv_event_t* e) {
     lv_indev_t* indev = lv_indev_get_act();
     if (!indev) return;
-    if (lv_indev_get_gesture_dir(indev) == LV_DIR_BOTTOM) {
-        show_watch_face(LV_SCR_LOAD_ANIM_MOVE_BOTTOM);
-    }
+    lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+    if (dir == LV_DIR_BOTTOM) show_watch_face(LV_SCR_LOAD_ANIM_MOVE_BOTTOM);
+    if (dir == LV_DIR_TOP)   show_music_screen(LV_SCR_LOAD_ANIM_MOVE_TOP);
 }
 
 // ── Helper: make a circle object ──────────────────────────────────────────

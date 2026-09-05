@@ -15,6 +15,7 @@
 #include "lvgl_port.h"
 #include "main_funcs.h"
 #include "motion.h"
+#include "music_screen.h"
 #include "notif_screen.h"
 #include "step_screen.h"
 #include "temp_screen.h"
@@ -42,19 +43,24 @@ void show_watch_face(lv_scr_load_anim_t anim) {
     lv_scr_load_anim(scr_watch, anim, 200, 0, false);
 }
 
-void show_step_screen() {
+void show_step_screen(lv_scr_load_anim_t anim) {
     step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
-    step_screen_show();
+    lv_scr_load_anim(step_screen_get(), anim, 200, 0, false);
 }
 
-void show_hr_screen() {
+void show_hr_screen(lv_scr_load_anim_t anim) {
     hr_screen_load_history(hr_history, GRAPH_POINTS, hr_history_head, hr_history_full);
-    hr_screen_show();
+    lv_scr_load_anim(hr_screen_get(), anim, 200, 0, false);
 }
-void show_temp_screen() {
-    temp_screen_update(baro_get_temperature(), baro_get_altitude(), g_hour,
-                       g_minute);
-    temp_screen_show();
+
+void show_temp_screen(lv_scr_load_anim_t anim) {
+    temp_screen_update(baro_get_temperature(), baro_get_altitude(), g_hour, g_minute);
+    lv_scr_load_anim(temp_screen_get(), anim, 200, 0, false);
+}
+
+void show_music_screen(lv_scr_load_anim_t anim) {
+    music_screen_update();
+    lv_scr_load_anim(music_screen_get(), anim, 200, 0, false);
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────
@@ -114,6 +120,7 @@ void setup() {
     step_screen_create();
     hr_screen_create();
     temp_screen_create();
+    music_screen_create();
 
     screenOnTime = millis();
     Serial.println("Setup complete");
@@ -126,6 +133,8 @@ void loop() {
     // ── Touch ──────────────────────────────────────────────────────────────
     static bool wasDown = false;
     static unsigned long lastSuccessfulRead = 0;
+    static unsigned long lastUpdate = 0;
+    static int lastDay = -1;
 
     if (touchEventFlag || (wasDown && (now - lastSuccessfulRead < 200))) {
         touchEventFlag = false;
@@ -199,20 +208,35 @@ void loop() {
         }
     }
     // ── Update watch face every second ──────────────────────────────────────
-    static unsigned long lastUpdate = 0;
+
     if (now - lastUpdate >= 1000) {
         lastUpdate = now;
+
         struct tm timeinfo;
         if (getLocalTime(&timeinfo, 0)) {
             g_hour = timeinfo.tm_hour;
             g_minute = timeinfo.tm_min;
+
             watch_face_update(
                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec,
                 getBatteryPercent(), bleConnected, timeinfo.tm_mday,
                 timeinfo.tm_mon + 1, timeinfo.tm_wday, baro_get_temperature(),
                 hrBeatAvg, motion_get_steps(), 10000);
+
+            // Midnight reset
+            if (timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 &&
+                timeinfo.tm_mday != lastDay) {
+                lastDay = timeinfo.tm_mday;
+                Wire.beginTransmission(0x69);
+                Wire.write(0x7E);
+                Wire.write(0xB2);
+                Wire.endTransmission();
+                Serial.println("Daily step count reset");
+                hr_screen_reset_calories();
+            }
+
         } else {
-            // No BLE sync yet — show seconds ticking, no date
+            // No BLE sync yet — seconds ticking
             unsigned long s = now / 1000;
             watch_face_update(0, 0, s % 60, getBatteryPercent(), bleConnected,
                               0, 0, 0, baro_get_temperature(), hrBeatAvg,
@@ -220,7 +244,8 @@ void loop() {
         }
     }
 
-    // ── Update step screen every 5 seconds ─────────────────────────────────
+    // ── Update step screen every 5 seconds
+    // ─────────────────────────────────
     static unsigned long lastStepUpdate = 0;
     if (now - lastStepUpdate >= 5000) {
         lastStepUpdate = now;
@@ -231,9 +256,13 @@ void loop() {
             temp_screen_update(baro_get_temperature(), baro_get_altitude(),
                                g_hour, g_minute);
         }
+        if (lv_scr_act() == music_screen_get()) {
+            music_screen_update();
+        }
     }
 
-    // ── Display timeout ─────────────────────────────────────────────────────
+    // ── Display timeout
+    // ─────────────────────────────────────────────────────
     if (now - screenOnTime > DISPLAY_TIMEOUT_MS) {
         display.setBrightness(0);
         motion_sleep_start();
@@ -251,7 +280,7 @@ void loop() {
         screenOnTime = millis();
         lastDraw = 0;
     }
-    // ── LVGL ───────────────────────────────────────────────────────────────
+    // ── LVGL ─────────────────────────────────────────────────────
     lv_timer_handler();
     delay(5);
 }

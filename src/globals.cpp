@@ -64,3 +64,13 @@ volatile bool pendingNotification = false;
 
 int g_hour   = 0;
 int g_minute = 0;
+
+// Spotify
+String music_track           = "Not playing";
+String music_artist          = "";
+String music_state           = "paused";
+int    music_pos             = 0;
+int    music_dur             = 0;
+int    music_vol             = 70;
+unsigned long music_pos_updated_at = 0;
+ 

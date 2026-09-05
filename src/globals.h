@@ -55,3 +55,12 @@ extern int  lastTouchY;
 extern bool lastTouchDown;
 extern lv_obj_t *scr_watch;
 extern volatile bool pendingNotification;
+
+// Spotify 
+extern String music_track;
+extern String music_artist;
+extern String music_state;       // "playing" or "paused"
+extern int    music_pos;         // current position seconds
+extern int    music_dur;         // total duration seconds
+extern int    music_vol;         // volume 0-100
+extern unsigned long music_pos_updated_at; // millis() when pos was last set
