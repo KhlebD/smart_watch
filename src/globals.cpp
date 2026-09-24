@@ -73,4 +73,12 @@ int    music_pos             = 0;
 int    music_dur             = 0;
 int    music_vol             = 70;
 unsigned long music_pos_updated_at = 0;
- 
+
+// Running
+String run_state     = "idle";
+float  run_dist_km   = 0.0f;
+long   run_time_sec  = 0;
+float  run_pace_min_km = 0.0f;
+float  run_speed_kmh = 0.0f;
+bool   run_active    = false;
+

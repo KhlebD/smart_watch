@@ -7,3 +7,6 @@
 
 void initBLE();
 void send_music_cmd(const char* cmd);
+
+// Running
+void send_run_cmd(const char* cmd);

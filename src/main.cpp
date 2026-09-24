@@ -17,6 +17,7 @@
 #include "motion.h"
 #include "music_screen.h"
 #include "notif_screen.h"
+#include "run_screen.h"
 #include "step_screen.h"
 #include "temp_screen.h"
 #include "touch.h"
@@ -49,18 +50,27 @@ void show_step_screen(lv_scr_load_anim_t anim) {
 }
 
 void show_hr_screen(lv_scr_load_anim_t anim) {
-    hr_screen_load_history(hr_history, GRAPH_POINTS, hr_history_head, hr_history_full);
+    hr_screen_load_history(hr_history, GRAPH_POINTS, hr_history_head,
+                           hr_history_full);
     lv_scr_load_anim(hr_screen_get(), anim, 200, 0, false);
 }
 
 void show_temp_screen(lv_scr_load_anim_t anim) {
-    temp_screen_update(baro_get_temperature(), baro_get_altitude(), g_hour, g_minute);
+    temp_screen_update(baro_get_temperature(), baro_get_altitude(), g_hour,
+                       g_minute);
     lv_scr_load_anim(temp_screen_get(), anim, 200, 0, false);
 }
 
 void show_music_screen(lv_scr_load_anim_t anim) {
     music_screen_update();
     lv_scr_load_anim(music_screen_get(), anim, 200, 0, false);
+}
+
+void show_run_screen(lv_scr_load_anim_t anim) {
+    run_screen_update(run_dist_km, run_time_sec, run_pace_min_km, run_speed_kmh,
+                      hrBeatAvg, run_state.c_str());
+    lv_scr_load_anim(run_screen_get(), anim, 200, 0, false);
+    
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────
@@ -121,6 +131,7 @@ void setup() {
     hr_screen_create();
     temp_screen_create();
     music_screen_create();
+    run_screen_create();
 
     screenOnTime = millis();
     Serial.println("Setup complete");
@@ -258,6 +269,21 @@ void loop() {
         }
         if (lv_scr_act() == music_screen_get()) {
             music_screen_update();
+        }
+        if (lv_scr_act() == run_screen_get()) {
+            run_screen_update(run_dist_km, run_time_sec, run_pace_min_km,
+                              run_speed_kmh, hrBeatAvg, run_state.c_str());
+        }
+        // ── Send run data to phone ──────────────────────────────────────────
+        if (run_active && bleConnected) {
+            char buf[128];
+            snprintf(buf, sizeof(buf),
+                     "GB({\"t\":\"runData\",\"hr\":%d,\"steps\":%d,\"alt\":%."
+                     "1f,\"temp\":%.1f})",
+                     hrBeatAvg, motion_get_steps(), baro_get_altitude(),
+                     baro_get_temperature());
+            pTxCharacteristic->setValue((uint8_t*)buf, strlen(buf));
+            pTxCharacteristic->notify();
         }
     }
 

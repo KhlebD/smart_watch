@@ -47,7 +47,8 @@
 #define CARD_PADDING           8
 
 // Sleep time
-#define DISPLAY_TIMEOUT_MS 20000
+// CHANGED TO 2000 SECONDS FOR DEBUGGING
+#define DISPLAY_TIMEOUT_MS 2000000
 
 // Touch things
 #define TAP_THRESHOLD          10

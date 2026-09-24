@@ -94,9 +94,10 @@ static void gesture_cb(lv_event_t* e) {
         default: break;
     }
 }
-// ── Long Press for Music ──────────────────────────────────────────────────
+// ── Long Press for Music / Run ──────────────────────────────────────────────────
 static void long_press_cb(lv_event_t* e) {
-    show_music_screen();
+    if (run_active) show_run_screen(LV_SCR_LOAD_ANIM_FADE_IN);
+    else            show_music_screen(LV_SCR_LOAD_ANIM_FADE_IN);
 }
 // ── Create ────────────────────────────────────────────────────────────────
 void watch_face_create(lv_obj_t* screen) {

@@ -106,6 +106,32 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
                           music_track.c_str(), music_artist.c_str(),
                           music_state.c_str(), music_pos, music_dur, music_vol);
         }
+        if (strcmp(type, "runInfo") == 0) {
+            run_dist_km = doc["dist"] | 0.0f;
+            run_time_sec = doc["time"] | 0L;
+            run_speed_kmh = doc["speed"] | 0.0f;
+            run_pace_min_km = 0.0f;
+            const char* pace = doc["pace"] | "--:--";
+            // parse "M:SS" string into float
+            String paceStr(pace);
+            int colon = paceStr.indexOf(':');
+            if (colon > 0) {
+                float min = paceStr.substring(0, colon).toFloat();
+                float sec = paceStr.substring(colon + 1).toFloat();
+                run_pace_min_km = min + sec / 60.0f;
+            }
+            run_state = doc["state"] | "idle";
+        }
+
+        if (strcmp(type, "runState") == 0) {
+            const char* state = doc["state"] | "idle";
+            run_state = state;
+            if (strcmp(state, "started") == 0) {
+                run_active = true;
+            } else if (strcmp(state, "stopped") == 0) {
+                run_active = false;
+            }
+        }
     }
 };
 
@@ -140,4 +166,12 @@ void send_music_cmd(const char* cmd) {
     pTxCharacteristic->setValue((uint8_t*)buf, strlen(buf));
     pTxCharacteristic->notify();
     Serial.printf("Sent music cmd: %s\n", cmd);
+}
+
+void send_run_cmd(const char* cmd) {
+    if (!pTxCharacteristic || !bleConnected) return;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "GB({\"t\":\"runCmd\",\"cmd\":\"%s\"})", cmd);
+    pTxCharacteristic->setValue((uint8_t*)buf, strlen(buf));
+    pTxCharacteristic->notify();
 }

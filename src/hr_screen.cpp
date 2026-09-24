@@ -26,7 +26,7 @@ static void swipe_cb(lv_event_t *e) {
     lv_indev_t* indev = lv_indev_get_act();
     if (!indev) return;
     lv_dir_t dir = lv_indev_get_gesture_dir(indev);
-    if (dir == LV_DIR_RIGHT) show_step_screen(LV_SCR_LOAD_ANIM_MOVE_RIGHT);
+    if (dir == LV_DIR_RIGHT) show_run_screen(LV_SCR_LOAD_ANIM_MOVE_RIGHT);
     if (dir == LV_DIR_LEFT)  show_watch_face(LV_SCR_LOAD_ANIM_MOVE_LEFT);
 }
 // ── Create ────────────────────────────────────────────────────────────────

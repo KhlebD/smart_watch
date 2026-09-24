@@ -64,3 +64,11 @@ extern int    music_pos;         // current position seconds
 extern int    music_dur;         // total duration seconds
 extern int    music_vol;         // volume 0-100
 extern unsigned long music_pos_updated_at; // millis() when pos was last set
+
+// Running 
+extern String run_state;        // "idle", "running", "paused", "stopped"
+extern float  run_dist_km;
+extern long   run_time_sec;
+extern float  run_pace_min_km;
+extern float  run_speed_kmh;
+extern bool   run_active;
