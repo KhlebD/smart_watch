@@ -6,7 +6,7 @@ LGFX::LGFX(void) {
     {
         auto cfg = _bus_instance.config();
         cfg.spi_host = SPI2_HOST;
-        cfg.freq_write = 80000000;
+        cfg.freq_write = 40000000;
         cfg.pin_mosi   = LCD_MOSI;
         cfg.pin_miso   = -1;
         
