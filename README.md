@@ -4,11 +4,15 @@ A DIY smartwatch built from scratch around the ESP32-S3-Zero, with custom PCBs, 
 
 <img src="docs/images/watch.jpeg" width="400">
 
-https://github.com/user-attachments/assets/e7bce69e-b9cd-4114-9a7d-c4fdbf5015b5
 
+https://github.com/user-attachments/assets/0c07c2c6-404b-4337-90d6-0c7b8de9bd92
 
 
 ## Features
+
+
+
+
 
 - Watch face with time, date, battery and BLE status
 - Step counter, heart rate, altitude and temperature
