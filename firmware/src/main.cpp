@@ -258,7 +258,7 @@ void loop() {
     // ── Update step screen every 5 seconds
     // ─────────────────────────────────
     static unsigned long lastStepUpdate = 0;
-    if (now - lastStepUpdate >= 5000) {
+    if (now - lastStepUpdate >= 1000) {
         lastStepUpdate = now;
         if (lv_scr_act() == step_screen_get()) {
             step_screen_update(motion_get_steps(), 10000, baro_get_altitude());
@@ -274,6 +274,8 @@ void loop() {
             run_screen_update(run_dist_km, run_time_sec, run_pace_min_km,
                               run_speed_kmh, hrBeatAvg, run_state.c_str());
         }
+        Serial.printf("run_state=%s run_active=%d run_time_sec=%ld\n",
+                      run_state.c_str(), run_active, run_time_sec);
         // ── Send run data to phone ──────────────────────────────────────────
         if (run_active && bleConnected) {
             char buf[128];
