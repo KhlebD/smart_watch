@@ -2,7 +2,7 @@
 
 A DIY smartwatch built from scratch around the ESP32-S3-Zero, with custom PCBs, a round touch display running LVGL, health and environment sensors, and a custom Android companion app.
 
-![The watch](docs/images/watch.jpeg)
+<img src="docs/images/watch.jpg" width="400">
 
 https://github.com/user-attachments/assets/e7bce69e-b9cd-4114-9a7d-c4fdbf5015b5
 
